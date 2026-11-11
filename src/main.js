@@ -572,6 +572,11 @@ function drawTitle() {
   buttons.push({ id: 'mute', x: mx, y: my, w: 150, h: 64 });
   panelBox(mx, my, 150, 64, isMuted() ? '#9aa3b5' : '#7fd3ff', '#1b2246', 14, 5);
   text(isMuted() ? '소리 끔' : '소리 켬', mx + 75, my + 34, 28, '#1b2246', { outline: null });
+  // 최고기록 초기화 버튼
+  const rx0 = GX + 24, rw = 210;
+  buttons.push({ id: 'resetBest', x: rx0, y: my, w: rw, h: 64 });
+  panelBox(rx0, my, rw, 64, '#ffb3b3', '#1b2246', 14, 5);
+  text('기록 초기화', rx0 + rw / 2, my + 34, 28, '#1b2246', { outline: null });
 
   text('예산과 함께하는', cx, 170, 50, '#ffe066', { ow: 10 });
   text('엔트리봇', cx, 268, 104, '#ffffff', { ow: 16 });
@@ -691,6 +696,12 @@ function onButton(id) {
   switch (id) {
     case 'start': sfx.click(); resetGame(); requestWakeLock(); break;
     case 'mute': setMuted(!isMuted()); sfx.click(); break;
+    case 'resetBest':
+      sfx.click();
+      setTimeout(() => {
+        if (window.confirm(`최고기록(${best}계단)을 0으로 초기화할까요?`)) { best = 0; saveBest(); }
+      }, 50);
+      break;
     case 'pause': if (state === 'play' || state === 'ready') { pausedFrom = state; state = 'paused'; } break;
     case 'resume': sfx.click(); state = pausedFrom; break;
     case 'retry': sfx.click(); resetGame(); break;
