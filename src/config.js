@@ -1,0 +1,68 @@
+// 난이도·부스터·배경 설정 — 숫자는 여기서만 고치면 됩니다.
+export const CONFIG = {
+  // 화면 기준 (논리 좌표)
+  VIEW_H: 1280,
+  VIEW_W_MIN: 700,
+  VIEW_W_MAX: 960,
+
+  // 계단 모양
+  STEP_DX: 96,          // 한 계단 가로 이동
+  STEP_DY: 70,          // 한 계단 세로 이동
+  BLOCK_W: 128,
+  BLOCK_H: 56,
+  PLAYER_SIZE: 176,     // 엔트리봇 그림 크기
+  PLAYER_SCREEN_Y: 0.66, // 엔트리봇이 화면 높이의 몇 % 위치에 서 있는지
+
+  // 계단 생성
+  START_STRAIGHT: 3,    // 처음 몇 계단은 같은 방향
+  TURN_CHANCE: 0.35,    // 방향이 바뀔 확률
+  MAX_RUN: 7,           // 같은 방향 최대 연속 계단 수
+
+  // 시간 게이지 (최대 100)
+  GAUGE_MAX: 100,
+  GAUGE_PER_STEP: 7,
+  // [이 계단 수부터, 초당 감소량]
+  DRAIN_TABLE: [
+    [0, 14],
+    [50, 18],
+    [100, 22],
+    [200, 26],
+    [300, 30],
+  ],
+  DRAIN_AFTER_300_PER_100: 2,
+  DRAIN_MAX: 40,
+  GAUGE_WARN: 30,
+
+  // 부스터
+  BOOST_PER_STEP: 2,
+  BOOST_PER_FAST_STEP: 3,   // 빠르게 연속으로 오를 때
+  FAST_STEP_SEC: 0.4,
+  BOOST_DURATION: 3.0,
+  BOOST_STEPS_PER_SEC: 11,
+
+  // 배경
+  STAGE_EVERY: 50,
+  STAGES: [
+    { img: 'assets/bg_01.webp', name: '예산황새공원' },
+    { img: 'assets/bg_02.webp', name: '예당호 출렁다리' },
+    { img: 'assets/bg_03.webp', name: '예산시장' },
+    { img: 'assets/bg_04.webp', name: '추사고택' },
+    { img: 'assets/bg_05.webp', name: '수덕사' },
+    { img: 'assets/bg_06.webp', name: '예산 사과과수원' },
+    { img: 'assets/bg_07.webp', name: '가야산·덕산온천' },
+    { img: 'assets/bg_08.webp', name: '예당호 음악분수' },
+  ],
+
+  // 코딩블록 계단 색 (윗면, 옆면)
+  BLOCK_COLORS: [
+    { top: '#f5a623', side: '#c27c0e', icon: 'play' },   // 시작하기
+    { top: '#3b8beb', side: '#2361b0', icon: 'arrow' },  // 움직이기
+    { top: '#9b6bdf', side: '#6d44ab', icon: 'talk' },   // 말하기
+    { top: '#2fb36b', side: '#1d7e4a', icon: 'loop' },   // 반복하기
+  ],
+
+  APP_NAME: '예산과 함께하는 엔트리봇 무한의 계단',
+  CREDIT: '제작: myoLab(산쌤)',
+  BEST_KEY: 'yesanEntrybotStairs.best',
+  MUTE_KEY: 'yesanEntrybotStairs.mute',
+};

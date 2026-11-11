@@ -1,1 +1,18 @@
-# yesan-entrybot-stairs
+# 예산과 함께하는 엔트리봇 무한의 계단
+
+예산 엔트리 쉼터 부스용 태블릿 게임입니다. 제작: myoLab(산쌤)
+
+- 플레이: https://ys970425.github.io/yesan-entrybot-stairs/
+- 조작: 왼쪽 버튼(←) = 방향 바꾸기, 오른쪽 버튼(→) = 오르기
+- 태블릿에서 한 번 연 뒤 "홈 화면에 추가"하면 인터넷 없이도 실행됩니다.
+- 최고기록 초기화: 처음 화면의 "제작: myoLab(산쌤)"을 3초 길게 누르기
+
+## 고치는 곳
+
+- 난이도, 부스터, 배경 순서와 이름: `src/config.js`
+- 파일을 고친 뒤 배포할 때는 `sw.js`의 `VERSION`을 올려야 태블릿에 새 버전이 반영됩니다.
+
+## 사용한 것
+
+- 글꼴: [갈무리(Galmuri)](https://github.com/quiple/galmuri), SIL Open Font License (`fonts/OFL.md`)
+- 그림: GPT로 생성한 도트 에셋
