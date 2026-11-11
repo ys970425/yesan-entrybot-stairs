@@ -3,7 +3,7 @@ import { CONFIG as C } from './config.js';
 import { sfx, unlockAudio, isMuted, setMuted } from './audio.js';
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false });
+const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 const FONT = '"Galmuri11", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
 const clock = () => performance.now() / 1000;
 
@@ -13,6 +13,7 @@ const clock = () => performance.now() / 1000;
 let dpr = 1, k = 1, VW = 720, VH = 1280, GW = 720, GX = 0;
 let topShade = null;
 const blockCache = [];
+let coinCache = null;
 
 function resize() {
   const cssW = window.innerWidth;
@@ -119,6 +120,34 @@ function buildBlocks() {
     bg.drawImage(s, 0, 0, big.width, big.height);
     blockCache.push(big);
   }
+  buildCoin();
+}
+
+// 도트 코인 (14x14 픽셀을 확대)
+function buildCoin() {
+  const s = document.createElement('canvas');
+  s.width = 14; s.height = 14;
+  const g = s.getContext('2d');
+  for (let y = 0; y < 14; y++) {
+    for (let x = 0; x < 14; x++) {
+      const d = Math.hypot(x + 0.5 - 7, y + 0.5 - 7);
+      let col = null;
+      if (d <= 6.9) col = '#7a4a00';
+      if (d <= 5.9) col = '#ffc928';
+      if (d <= 4.2) col = '#f2a900';
+      if (d <= 3.2) col = '#ffd84d';
+      if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
+    }
+  }
+  g.fillStyle = '#b97800'; g.fillRect(6, 4, 2, 6);          // 가운데 무늬
+  g.fillStyle = '#fff6c2'; g.fillRect(3, 4, 1, 3); g.fillRect(4, 3, 2, 1); // 반짝임
+  const big = document.createElement('canvas');
+  big.width = Math.max(1, Math.round(C.COIN_SIZE * k));
+  big.height = big.width;
+  const bg = big.getContext('2d');
+  bg.imageSmoothingEnabled = false;
+  bg.drawImage(s, 0, 0, big.width, big.height);
+  coinCache = big;
 }
 
 // ------------------------------------------------------------
@@ -128,6 +157,7 @@ let state = 'loading'; // loading | title | ready | play | paused | falling | ov
 let pausedFrom = 'play';
 let stairs = [];
 let lastDir = 1, runLen = 0, straightUntil = 0;
+let coins = 0, coinFx = [];
 let n = 0, facing = 1, score = 0;
 let gauge = C.GAUGE_MAX;
 let boostGauge = 0, boostActive = false, boostTime = 0, boostAcc = 0, boostStartAt = -10;
@@ -138,7 +168,7 @@ let overAt = 0, newRecord = false;
 let stageIdx = 0, prevStageIdx = 0, stageFade = 1, bannerAt = -10;
 let shake = 0;
 let trail = [];
-let pressAt = { turn: -10, climb: -10 };
+let pressAt = { turn: -10, climb: -10, boost: -10 };
 let best = 0;
 try { best = parseInt(localStorage.getItem(C.BEST_KEY) || '0', 10) || 0; } catch (e) {}
 
@@ -155,7 +185,8 @@ function genStairs(upto) {
     if (dir === lastDir) runLen++; else runLen = 1;
     lastDir = dir;
     const prev = stairs[i - 1];
-    stairs.push({ x: prev.x + dir, c: (Math.random() * C.BLOCK_COLORS.length) | 0 });
+    const coin = i >= C.COIN_FROM && i > straightUntil && Math.random() < C.COIN_CHANCE;
+    stairs.push({ x: prev.x + dir, c: (Math.random() * C.BLOCK_COLORS.length) | 0, coin });
   }
 }
 
@@ -168,7 +199,7 @@ function resetGame() {
   rx = 0; ry = 0; camX = 0; camY = 0;
   fallT = 0; newRecord = false;
   stageIdx = 0; prevStageIdx = 0; stageFade = 1; bannerAt = clock();
-  shake = 0; trail = [];
+  shake = 0; trail = []; coins = 0; coinFx = [];
   state = 'ready';
 }
 
@@ -200,10 +231,14 @@ function step(auto) {
   genStairs(n + 30);
   stepCount++;
   gauge = Math.min(C.GAUGE_MAX, gauge + C.GAUGE_PER_STEP);
-  if (!auto) {
-    const fast = now - lastStepAt <= C.FAST_STEP_SEC;
-    boostGauge = Math.min(100, boostGauge + (fast ? C.BOOST_PER_FAST_STEP : C.BOOST_PER_STEP));
-    sfx.step();
+  const st = stairs[n];
+  if (st.coin) {
+    st.coin = false;
+    coins++;
+    if (!boostActive) boostGauge = Math.min(100, boostGauge + C.COIN_BOOST);
+    coinFx.push({ x: st.x, y: n, t: now });
+    if (coinFx.length > 8) coinFx.shift();
+    sfx.coin();
   } else {
     sfx.step();
   }
@@ -213,7 +248,13 @@ function step(auto) {
     prevStageIdx = stageIdx; stageIdx = si; stageFade = 0; bannerAt = now;
     sfx.stage();
   }
-  if (!auto && boostGauge >= 100) startBoost();
+}
+
+function tryBoost() {
+  if (state === 'ready') state = 'play';
+  if (state !== 'play' || boostActive || boostGauge < 100) return false;
+  startBoost();
+  return true;
 }
 
 function startBoost() {
@@ -266,7 +307,7 @@ function update(dt) {
 
   // 보이는 위치를 실제 위치로 부드럽게
   if (state !== 'falling' && state !== 'over') {
-    const a = 1 - Math.exp(-dt * (boostActive ? 30 : 24));
+    const a = 1 - Math.exp(-dt * C.FOLLOW_SPEED);
     rx += (stairs[n].x - rx) * a;
     ry += (n - ry) * a;
   }
@@ -277,7 +318,7 @@ function update(dt) {
       if (newRecord) sfx.record();
     }
   }
-  const ca = 1 - Math.exp(-dt * 20);
+  const ca = 1 - Math.exp(-dt * C.CAMERA_SPEED);
   if (state !== 'falling' && state !== 'over') {
     camX += (rx - camX) * ca;
     camY += (ry - camY) * ca;
@@ -376,6 +417,31 @@ function drawStairs() {
     if (x > VW || x + C.BLOCK_W < 0) continue;
     ctx.drawImage(blockCache[st.c], x, y, C.BLOCK_W, C.BLOCK_H);
   }
+  // 코인 (계단 위에 둥실)
+  if (!coinCache) return;
+  const now = clock();
+  const cs = C.COIN_SIZE;
+  for (let i = to; i >= from; i--) {
+    const st = stairs[i];
+    if (!st.coin) continue;
+    const cx = sx(st.x);
+    if (cx < -cs || cx > VW + cs) continue;
+    const bob = Math.sin(now * 5 + i) * 5;
+    const w = cs * (0.35 + 0.65 * Math.abs(Math.cos(now * 3 + i * 0.7)));
+    ctx.drawImage(coinCache, cx - w / 2, sy(i) - cs - 18 + bob, w, cs);
+  }
+}
+
+function drawCoinFx() {
+  const now = clock();
+  for (const f of coinFx) {
+    const t = now - f.t;
+    if (t > 0.6) continue;
+    const x = sx(f.x), y = sy(f.y) - C.PLAYER_SIZE - 10 - t * 120;
+    ctx.globalAlpha = 1 - t / 0.6;
+    text('+1', x + 50, y, 40, '#ffe066', { outline: '#7a4a00', ow: 8 });
+    ctx.globalAlpha = 1;
+  }
 }
 
 function botFrame() {
@@ -458,7 +524,7 @@ function drawBoostFx() {
     ctx.globalAlpha = 1;
   } else {
     const s = 1 + 0.08 * Math.sin(now * 18);
-    text('마구 눌러요!', GX + GW / 2, VH * 0.3, 64 * s, '#ffffff', { outline: '#c4320a', ow: 12 });
+    text('아무 곳이나 마구 터치!', GX + GW / 2, VH * 0.3, 54 * s, '#ffffff', { outline: '#c4320a', ow: 12 });
     text(`${Math.ceil(Math.max(0, boostTime))}`, GX + GW / 2, VH * 0.3 + 76, 52, '#ffde3b', { outline: '#c4320a', ow: 10 });
   }
 }
@@ -503,6 +569,11 @@ function drawHud() {
   ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.stroke();
   text(name, lx + lw / 2, ly + lh / 2 + 1, 26, '#fff', { outline: null, bold: false });
 
+  // 코인 수 (왼쪽)
+  const cy0 = ly + lh / 2;
+  if (coinCache) ctx.drawImage(coinCache, GX + 26, cy0 - 20, 40, 40);
+  text(String(coins), GX + 76, cy0 + 2, 34, '#ffe066', { align: 'left', outline: '#1b2246', ow: 7 });
+
   // 점수
   text(String(score), GX + GW / 2, 236, 100, '#ffffff', { outline: '#1b2246', ow: 14 });
   text(`BEST ${best}`, GX + GW / 2, 300, 30, '#ffe066', { outline: '#1b2246', ow: 7 });
@@ -541,6 +612,35 @@ function drawControls() {
       ctx.closePath(); ctx.fill();
     }
     text(d.label, cx, y + oy + size - 30, 24, '#fff', { outline: '#1b2246', ow: 6 });
+  }
+
+  // 부스터 버튼 (가운데)
+  const gap = GW - 80 - size * 2;
+  const bw = Math.min(230, gap - 30), bh = size * 0.82;
+  const bx = GX + GW / 2 - bw / 2, by = VH - 60 - bh;
+  const readyB = boostGauge >= 100 && !boostActive && (state === 'play' || state === 'ready');
+  if (readyB) buttons.push({ id: 'boost', x: bx - 10, y: by - 20, w: bw + 20, h: bh + 40 });
+  const pressedB = now - pressAt.boost < 0.1;
+  const oyB = pressedB ? 8 : 0;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  rrect(bx, by + 10, bw, bh, 26); ctx.fill();
+  if (boostActive) {
+    panelBox(bx, by + oyB, bw, bh, '#ffd23b', '#1b2246', 26, 7);
+    text('부스터 중', bx + bw / 2, by + oyB + bh / 2, 34, '#c4320a', { outline: null });
+  } else if (readyB) {
+    const pulse = 0.5 + 0.5 * Math.sin(now * 10);
+    ctx.save();
+    ctx.shadowColor = '#ff6a00'; ctx.shadowBlur = 20 + 20 * pulse;
+    panelBox(bx, by + oyB, bw, bh, pulse > 0.5 ? '#ff4d1f' : '#ff7a1f', '#1b2246', 26, 7);
+    ctx.restore();
+    text('부스터!', bx + bw / 2, by + oyB + bh / 2 - 12, 44 + 4 * pulse, '#ffffff', { outline: '#7a1a00', ow: 9 });
+    text('누르세요', bx + bw / 2, by + oyB + bh / 2 + 32, 24, '#fff6c2', { outline: '#7a1a00', ow: 6 });
+  } else {
+    panelBox(bx, by, bw, bh, '#5b5f73', '#1b2246', 26, 7);
+    const fillW = (bw - 18) * (boostGauge / 100);
+    if (fillW > 0) { ctx.fillStyle = '#ff9a1f'; rrect(bx + 9, by + 9, fillW, bh - 18, 18); ctx.fill(); }
+    text('부스터', bx + bw / 2, by + bh / 2 - 12, 36, '#ffffff', { outline: '#1b2246', ow: 7 });
+    text(`코인 ${Math.round(boostGauge / C.COIN_BOOST)}/${Math.round(100 / C.COIN_BOOST)}`, bx + bw / 2, by + bh / 2 + 30, 24, '#ffffff', { outline: '#1b2246', ow: 6 });
   }
 }
 
@@ -620,6 +720,7 @@ function drawGame() {
   if (boostActive) drawBoostFx();
   drawStairs();
   drawPlayer();
+  drawCoinFx();
   ctx.restore();
   if (stageFade >= 1) prevStageIdx = stageIdx;
   drawHud();
@@ -689,11 +790,6 @@ function draw() {
 // ------------------------------------------------------------
 // 입력
 // ------------------------------------------------------------
-function toLogical(e) {
-  const r = canvas.getBoundingClientRect();
-  return { x: (e.clientX - r.left) * dpr / k, y: (e.clientY - r.top) * dpr / k };
-}
-
 function hit(p) {
   for (let i = buttons.length - 1; i >= 0; i--) {
     const b = buttons[i];
@@ -712,32 +808,56 @@ function onButton(id) {
         if (window.confirm(`최고기록(${best}계단)을 0으로 초기화할까요?`)) { best = 0; saveBest(); }
       }, 50);
       break;
-    case 'pause': if (state === 'play' || state === 'ready') { pausedFrom = state; state = 'paused'; } break;
+    case 'pause': if ((state === 'play' || state === 'ready') && !boostActive) { pausedFrom = state; state = 'paused'; } break;
     case 'resume': sfx.click(); state = pausedFrom; break;
     case 'retry': sfx.click(); resetGame(); break;
     case 'home': sfx.click(); state = 'title'; break;
   }
 }
 
-canvas.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
+// 터치는 touchstart로 손가락 하나하나를 바로 처리 (연타가 씹히지 않도록),
+// 마우스·펜은 pointerdown으로 처리
+function handleTap(clientX, clientY) {
   unlockAudio();
   if (!ready) return;
-  const p = toLogical(e);
+  const r = canvas.getBoundingClientRect();
+  const p = { x: (clientX - r.left) * dpr / k, y: (clientY - r.top) * dpr / k };
   const id = hit(p);
   if (state === 'play' || state === 'ready') {
+    if (boostActive) { doAction('climb'); return; } // 부스터 중: 화면 어디든 터치하면 오름
     if (id === 'pause') { onButton('pause'); return; }
+    if (id === 'boost') { pressAt.boost = clock(); tryBoost(); return; }
     doAction(p.x < GX + GW / 2 ? 'turn' : 'climb');
     return;
   }
   if (state === 'title' && id === 'credit') { creditHold = clock(); return; }
   if (id) onButton(id);
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  if (e.cancelable) e.preventDefault();
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    handleTap(t.clientX, t.clientY);
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') return; // 터치는 위에서 처리
+  e.preventDefault();
+  handleTap(e.clientX, e.clientY);
 }, { passive: false });
 
 function endHold() { creditHold = null; }
 canvas.addEventListener('pointerup', endHold);
 canvas.addEventListener('pointercancel', endHold);
 canvas.addEventListener('pointerleave', endHold);
+canvas.addEventListener('touchend', endHold);
+canvas.addEventListener('touchcancel', endHold);
+
+const KEY_TURN = ['ArrowLeft', 'a', 'A', 'f', 'F'];
+const KEY_CLIMB = ['ArrowRight', 'd', 'D', 'j', 'J'];
+const KEY_BOOST = [' ', 'ArrowUp', 'Enter', 'w', 'W'];
 
 window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -745,8 +865,11 @@ window.addEventListener('keydown', (e) => {
   if (!ready) return;
   const key = e.key;
   if (state === 'play' || state === 'ready') {
-    if (key === 'ArrowLeft' || key === 'a' || key === 'A' || key === 'f' || key === 'F') { e.preventDefault(); doAction('turn'); }
-    else if (key === 'ArrowRight' || key === 'd' || key === 'D' || key === 'j' || key === 'J') { e.preventDefault(); doAction('climb'); }
+    if (boostActive && (KEY_TURN.includes(key) || KEY_CLIMB.includes(key) || KEY_BOOST.includes(key))) {
+      e.preventDefault(); doAction('climb'); // 부스터 중: 스페이스바·화살표 아무거나 연타
+    } else if (KEY_TURN.includes(key)) { e.preventDefault(); doAction('turn'); }
+    else if (KEY_CLIMB.includes(key)) { e.preventDefault(); doAction('climb'); }
+    else if (KEY_BOOST.includes(key)) { e.preventDefault(); pressAt.boost = clock(); tryBoost(); }
     else if (key === 'Escape' || key === 'p' || key === 'P') onButton('pause');
   } else if (key === 'Enter' || key === ' ') {
     e.preventDefault();
@@ -821,4 +944,7 @@ window.__game = {
   get n() { return n; }, get facing() { return facing; },
   nextDir() { return stairs[n + 1].x - stairs[n].x; },
   act: doAction,
+  boostNow: tryBoost,
+  get coins() { return coins; },
+  nextHasCoin() { return !!stairs[n + 1].coin; },
 };

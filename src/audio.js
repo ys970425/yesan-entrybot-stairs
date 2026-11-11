@@ -54,5 +54,6 @@ export const sfx = {
     [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, { vol: 0.18, delay: i * 0.11 }));
   },
   stage() { tone(880, 0.08, { vol: 0.12 }); tone(1175, 0.12, { vol: 0.12, delay: 0.08 }); },
+  coin() { tone(988, 0.06, { vol: 0.14 }); tone(1319, 0.12, { vol: 0.14, delay: 0.05 }); },
   click() { tone(500, 0.04, { vol: 0.1 }); },
 };

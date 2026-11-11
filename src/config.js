@@ -33,10 +33,17 @@ export const CONFIG = {
   DRAIN_MAX: 40,
   GAUGE_WARN: 30,
 
-  // 부스터
-  BOOST_PER_STEP: 2,
-  BOOST_PER_FAST_STEP: 3,   // 빠르게 연속으로 오를 때
-  FAST_STEP_SEC: 0.4,
+  // 반응 속도 (클수록 화면이 입력을 빨리 따라감)
+  FOLLOW_SPEED: 60,
+  CAMERA_SPEED: 40,
+
+  // 코인 → 부스터
+  COIN_FROM: 5,             // 몇 번째 계단부터 코인이 나오는지
+  COIN_CHANCE: 0.3,         // 계단에 코인이 있을 확률
+  COIN_BOOST: 10,           // 코인 1개당 부스터 게이지 (100이면 가득)
+  COIN_SIZE: 54,
+
+  // 부스터 (게이지가 가득 차면 부스터 버튼으로 켬)
   BOOST_DURATION: 5.0,      // 부스터 시간(초): 계단이 일직선, 아무 버튼이나 연타
   BOOST_STRAIGHT: 150,      // 부스터 동안 미리 깔아 둘 일직선 계단 수
   AFTER_BOOST_STRAIGHT: 2,  // 부스터가 끝난 직후 같은 방향으로 이어지는 계단 수
