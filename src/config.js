@@ -42,7 +42,7 @@ export const CONFIG = {
   AFTER_BOOST_STRAIGHT: 2,  // 부스터가 끝난 직후 같은 방향으로 이어지는 계단 수
 
   // 배경
-  STAGE_EVERY: 50,
+  STAGE_EVERY: 100,     // 몇 계단마다 배경이 바뀌는지 (8곳 다 돌면 처음부터 반복)
   STAGES: [
     { img: 'assets/bg_01.webp', name: '예산황새공원' },
     { img: 'assets/bg_02.webp', name: '예당호 출렁다리' },
