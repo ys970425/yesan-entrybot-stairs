@@ -61,16 +61,23 @@ function saveQueue(q) {
 }
 
 // 성공하면 { ok: true, rank }, 실패하면 { ok: false } (대기열에 저장됨)
-export async function submitScore(nickname, score) {
+export async function submitScore(nickname, score, color = 'blue') {
   if (!nickname || !(score >= 1)) return { ok: false, skipped: true };
   try {
-    const rank = await rpc('stairs_submit', { p_nick: nickname, p_score: score });
+    let rank;
+    try {
+      rank = await rpc('stairs_submit', { p_nick: nickname, p_score: score, p_color: color });
+    } catch (e1) {
+      // 서버가 아직 색 칸이 없는 예전 설정이면 색 없이 다시 보냄
+      if (e1.status && e1.status >= 400 && e1.status < 500) rank = await rpc('stairs_submit', { p_nick: nickname, p_score: score });
+      else throw e1;
+    }
     flushQueue();
     return { ok: true, rank };
   } catch (e) {
     if (e.status && e.status >= 400 && e.status < 500) return { ok: false, rejected: true };
     const q = loadQueue();
-    q.push({ n: nickname, s: score, t: Date.now() });
+    q.push({ n: nickname, s: score, c: color, t: Date.now() });
     saveQueue(q);
     return { ok: false, queued: true };
   }
@@ -86,7 +93,7 @@ export async function flushQueue() {
     while (q.length) {
       const item = q[0];
       try {
-        await rpc('stairs_submit', { p_nick: item.n, p_score: item.s });
+        await rpc('stairs_submit', { p_nick: item.n, p_score: item.s, p_color: item.c || 'blue' });
       } catch (e) {
         if (!(e.status && e.status >= 400 && e.status < 500)) break; // 아직 인터넷 없음 → 다음에
       }
@@ -99,3 +106,8 @@ export async function flushQueue() {
 }
 
 export function pendingCount() { return loadQueue().length; }
+
+// 순위 → 상 (1등/2등/3등), 상 밖이면 null
+export function prizeOf(rank) {
+  return C.PRIZES.find((p) => rank >= p.from && rank <= p.to) || null;
+}

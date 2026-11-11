@@ -3,6 +3,7 @@
 -- Supabase 대시보드 → SQL Editor → 이 내용 전체를 붙여 넣고 Run
 -- 맨 아래 '관리자 비밀번호' 줄의 'CHANGE-ME' 를 원하는 비밀번호로 바꾼 뒤 실행하세요.
 -- (여러 번 실행해도 안전합니다. 비밀번호를 바꿀 때도 다시 실행하면 됩니다.)
+-- 2판: 엔트리봇 색 추가, 상 받는 인원 6명(1등 1명·2등 2명·3등 3명)까지 학생 정보 입력
 -- ============================================================
 
 create extension if not exists pgcrypto with schema extensions;
@@ -31,6 +32,20 @@ create table if not exists public.stairs_admin (
   pin_hash text not null
 );
 
+-- 2판: 엔트리봇 색 칸 (기존 기록은 파랑)
+alter table public.stairs_scores add column if not exists color text not null default 'blue';
+
+-- 함수 모양이 바뀌어서 예전 함수를 지우고 다시 만듦 (기록은 그대로 남음)
+drop function if exists public.stairs_submit(text, int);
+drop function if exists public.stairs_submit(text, int, text);
+drop function if exists public.stairs_board(int);
+drop function if exists public.stairs_admin_list(text);
+drop function if exists public.stairs_admin_set_info(text, bigint, text, text, text);
+drop function if exists public.stairs_admin_hide(text, bigint, boolean);
+drop function if exists public.stairs_admin_clear_all(text);
+drop function if exists public.stairs_cleanup();
+drop function if exists public.stairs_ranked();
+
 -- 공개 키로는 세 표를 직접 읽거나 쓸 수 없게 잠그고, 아래 함수로만 접근
 alter table public.stairs_scores enable row level security;
 alter table public.stairs_winners enable row level security;
@@ -41,24 +56,24 @@ revoke all on public.stairs_scores, public.stairs_winners, public.stairs_admin f
 -- 내부용: 닉네임별 최고 기록으로 순위 매기기 (같은 기록이면 먼저 세운 사람이 위)
 -- ------------------------------------------------------------
 create or replace function public.stairs_ranked()
-returns table(rank bigint, id bigint, nickname text, score int, created_at timestamptz)
+returns table(rank bigint, id bigint, nickname text, score int, created_at timestamptz, color text)
 language sql stable security definer set search_path = public as $$
   select row_number() over (order by b.score desc, b.created_at asc) as rank,
-         b.id, b.nickname, b.score, b.created_at
+         b.id, b.nickname, b.score, b.created_at, b.color
   from (
-    select distinct on (s.nickname) s.id, s.nickname, s.score, s.created_at
+    select distinct on (s.nickname) s.id, s.nickname, s.score, s.created_at, s.color
     from stairs_scores s
     where not s.hidden
     order by s.nickname, s.score desc, s.created_at asc
   ) b
 $$;
 
--- 내부용: 3등 밖으로 밀려난 학생의 개인정보 자동 삭제
+-- 내부용: 상 받는 6명(1~6위) 밖으로 밀려난 학생의 개인정보 자동 삭제
 create or replace function public.stairs_cleanup()
 returns void
 language sql security definer set search_path = public as $$
   delete from stairs_winners w
-  where w.score_id not in (select r.id from stairs_ranked() r where r.rank <= 3);
+  where w.score_id not in (select r.id from stairs_ranked() r where r.rank <= 6);
 $$;
 
 -- 내부용: 비밀번호 확인
@@ -78,13 +93,16 @@ revoke execute on function public.stairs_check_pin(text) from public, anon, auth
 -- ------------------------------------------------------------
 -- 게임: 기록 보내기 → 이 기록의 순위를 돌려줌 (닉네임 최고기록이 아니면 null)
 -- ------------------------------------------------------------
-create or replace function public.stairs_submit(p_nick text, p_score int)
+create or replace function public.stairs_submit(p_nick text, p_score int, p_color text default 'blue')
 returns bigint
 language plpgsql security definer set search_path = public as $$
 declare
   new_id bigint;
   r bigint;
 begin
+  if p_color is null or p_color not in ('red','orange','yellow','green','blue','navy','purple','gold','silver','black','white') then
+    p_color := 'blue';
+  end if;
   p_nick := btrim(coalesce(p_nick, ''));
   if char_length(p_nick) < 1 or char_length(p_nick) > 8 then
     raise exception 'bad nickname';
@@ -92,18 +110,18 @@ begin
   if p_score is null or p_score < 1 or p_score > 5000 then
     return null;
   end if;
-  insert into stairs_scores (nickname, score) values (p_nick, p_score) returning id into new_id;
+  insert into stairs_scores (nickname, score, color) values (p_nick, p_score, p_color) returning id into new_id;
   perform stairs_cleanup();
   select x.rank into r from stairs_ranked() x where x.id = new_id;
   return r;
 end
 $$;
 
--- TV 순위표: 1~N등 (닉네임, 계단 수만 공개)
+-- TV 순위표: 1~N위 (닉네임, 계단 수, 엔트리봇 색만 공개)
 create or replace function public.stairs_board(lim int default 10)
-returns table(rank bigint, nickname text, score int)
+returns table(rank bigint, nickname text, score int, color text)
 language sql stable security definer set search_path = public as $$
-  select r.rank, r.nickname, r.score
+  select r.rank, r.nickname, r.score, r.color
   from stairs_ranked() r
   where r.rank <= least(greatest(coalesce(lim, 10), 1), 50)
   order by r.rank
@@ -114,33 +132,33 @@ $$;
 -- ------------------------------------------------------------
 create or replace function public.stairs_admin_list(p_pin text)
 returns table(rank bigint, id bigint, nickname text, score int, created_at timestamptz,
-              school text, grade text, name text, hidden boolean)
+              school text, grade text, name text, hidden boolean, color text)
 language plpgsql stable security definer set search_path = public as $$
 begin
   if not stairs_check_pin(p_pin) then raise exception 'wrong pin'; end if;
   return query
-    select r.rank, r.id, r.nickname, r.score, r.created_at, w.school, w.grade, w.name, false
+    select r.rank, r.id, r.nickname, r.score, r.created_at, w.school, w.grade, w.name, false, r.color
     from stairs_ranked() r
     left join stairs_winners w on w.score_id = r.id
     where r.rank <= 50
     order by r.rank;
   return query
     select null::bigint, s.id, s.nickname, max(s.score) over (partition by s.nickname), s.created_at,
-           null::text, null::text, null::text, true
+           null::text, null::text, null::text, true, s.color
     from stairs_scores s
     where s.hidden
       and s.id in (select min(h.id) from stairs_scores h where h.hidden group by h.nickname);
 end
 $$;
 
--- 1~3등 학생 정보 저장 (3등 밖이면 거절)
+-- 상 받는 1~6위 학생 정보 저장 (6위 밖이면 거절)
 create or replace function public.stairs_admin_set_info(p_pin text, p_id bigint, p_school text, p_grade text, p_name text)
 returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if not stairs_check_pin(p_pin) then raise exception 'wrong pin'; end if;
-  if not exists (select 1 from stairs_ranked() r where r.id = p_id and r.rank <= 3) then
-    raise exception 'not top 3';
+  if not exists (select 1 from stairs_ranked() r where r.id = p_id and r.rank <= 6) then
+    raise exception 'not top 6';
   end if;
   insert into stairs_winners (score_id, school, grade, name, updated_at)
   values (p_id, nullif(btrim(p_school), ''), nullif(btrim(p_grade), ''), nullif(btrim(p_name), ''), now())
@@ -172,7 +190,7 @@ begin
 end
 $$;
 
-grant execute on function public.stairs_submit(text, int) to anon, authenticated;
+grant execute on function public.stairs_submit(text, int, text) to anon, authenticated;
 grant execute on function public.stairs_board(int) to anon, authenticated;
 grant execute on function public.stairs_admin_list(text) to anon, authenticated;
 grant execute on function public.stairs_admin_set_info(text, bigint, text, text, text) to anon, authenticated;
@@ -180,8 +198,13 @@ grant execute on function public.stairs_admin_hide(text, bigint, boolean) to ano
 grant execute on function public.stairs_admin_clear_all(text) to anon, authenticated;
 
 -- ------------------------------------------------------------
--- 관리자 비밀번호: 'CHANGE-ME' 를 바꾸세요 (8자 이상 권장)
+-- 관리자 비밀번호
+-- 처음 설정할 때만 적용됩니다. 이미 비밀번호가 있으면 이 줄은 아무것도 바꾸지 않아요.
+-- (처음이라면 'CHANGE-ME' 를 원하는 비밀번호로 바꾸고 실행, 8자 이상 권장)
 -- ------------------------------------------------------------
 insert into public.stairs_admin (id, pin_hash)
-values (1, extensions.crypt('CHANGE-ME', extensions.gen_salt('bf')))
-on conflict (id) do update set pin_hash = excluded.pin_hash;
+select 1, extensions.crypt('CHANGE-ME', extensions.gen_salt('bf'))
+where not exists (select 1 from public.stairs_admin);
+
+-- 비밀번호를 바꾸고 싶을 때만: 아래 줄 맨 앞 '-- ' 를 지우고 새 비밀번호를 넣어 실행
+-- update public.stairs_admin set pin_hash = extensions.crypt('새비밀번호', extensions.gen_salt('bf')) where id = 1;

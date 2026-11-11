@@ -1,7 +1,8 @@
 // 예산과 함께하는 엔트리봇 무한의 계단 — 제작: myoLab(산쌤)
 import { CONFIG as C } from './config.js';
 import { sfx, unlockAudio, isMuted, setMuted } from './audio.js';
-import { submitScore, flushQueue, cleanNickname, checkNickname } from './net.js';
+import { submitScore, flushQueue, cleanNickname, checkNickname, prizeOf } from './net.js';
+import { BOT_COLORS, COLOR_IDS, recolor } from './colors.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
@@ -40,7 +41,7 @@ function resize() {
 // ------------------------------------------------------------
 // 에셋 불러오기 (게임 시작 전에 전부)
 // ------------------------------------------------------------
-const IMG = { bg: [], bot: {}, fire: [], letters: [], lettersDim: [] };
+const IMG = { bg: [], bot: {}, botBase: {}, fire: [], letters: [], lettersDim: [] };
 const BOT_FRAMES = ['idle1', 'idle2', 'climb1', 'climb2', 'fall1', 'fall2', 'boost1', 'boost2', 'happy'];
 let loaded = 0, total = 0, ready = false;
 
@@ -60,7 +61,7 @@ function loadImage(src) {
 async function loadAll() {
   const jobs = [];
   C.STAGES.forEach((s, i) => jobs.push(loadImage(s.img).then((im) => { IMG.bg[i] = im; })));
-  BOT_FRAMES.forEach((f) => jobs.push(loadImage(`assets/bot_${f}.webp`).then((im) => { IMG.bot[f] = im; })));
+  BOT_FRAMES.forEach((f) => jobs.push(loadImage(`assets/bot_${f}.webp`).then((im) => { IMG.botBase[f] = im; IMG.bot[f] = im; })));
   [1, 2, 3, 4].forEach((n, i) => jobs.push(loadImage(`assets/fx_fire${n}.webp`).then((im) => { IMG.fire[i] = im; })));
   if (C.USE_LETTER_IMAGES) C.WORD.forEach((_, i) => {
     jobs.push(loadImage(`assets/letter_${i + 1}.webp`).then((im) => { IMG.letters[i] = im; }));
@@ -70,6 +71,7 @@ async function loadAll() {
     ? Promise.all([document.fonts.load(`700 40px Galmuri11`), document.fonts.load(`400 40px Galmuri11`)]).catch(() => {})
     : Promise.resolve();
   await Promise.all([...jobs, fontJob]);
+  applyColor(playerColor);
   ready = true;
 }
 
@@ -142,6 +144,13 @@ let rx = 0, ry = 0, camX = 0, camY = 0; // 보이는 위치 (부드럽게 따라
 let fallT = 0, fallDir = 0, fallX = 0, fallY = 0;
 let overAt = 0, newRecord = false;
 let nickname = '';
+let playerColor = 'blue';
+try { const c = localStorage.getItem(C.COLOR_KEY); if (COLOR_IDS.includes(c)) playerColor = c; } catch (e) {}
+
+// 엔트리봇 그림을 고른 색으로 바꿔 둠 (게임 중에는 다시 계산하지 않음)
+function applyColor(id) {
+  for (const f of BOT_FRAMES) if (IMG.botBase[f]) IMG.bot[f] = recolor(IMG.botBase[f], id, 'bot_' + f);
+}
 let submitState = null, submitRank = null; // 'sending' | 'ok' | 'queued' | 'rejected'
 let stageIdx = 0, prevStageIdx = 0, stageFade = 1, bannerAt = -10;
 let shake = 0;
@@ -300,7 +309,7 @@ function sendScore() {
   if (!nickname || score < 1) return;
   submitState = 'sending';
   const runId = ++sendRun;
-  submitScore(nickname, score).then((r) => {
+  submitScore(nickname, score, playerColor).then((r) => {
     if (runId !== sendRun) return;
     if (r.ok) { submitState = 'ok'; submitRank = r.rank; }
     else submitState = r.queued ? 'queued' : 'rejected';
@@ -817,8 +826,10 @@ function drawOver() {
   let msg = '', mcol = '#3b5bab';
   if (submitState === 'sending') msg = '순위표에 기록 보내는 중...';
   else if (submitState === 'ok' && submitRank) {
-    msg = submitRank <= C.BOARD_SIZE ? `TV 순위표 ${submitRank}등! 축하해요!` : `전체 ${submitRank}등! TV 순위표는 ${C.BOARD_SIZE}등까지예요`;
-    mcol = submitRank <= 3 ? '#e8402e' : '#2f8a4a';
+    const pz = prizeOf(submitRank);
+    if (pz) { msg = `전체 ${submitRank}위 → ${pz.label} 시상대에 올라갔어요!`; mcol = '#e8402e'; }
+    else if (submitRank <= C.BOARD_SIZE) { msg = `전체 ${submitRank}위! TV 순위표에 올라갔어요`; mcol = '#2f8a4a'; }
+    else msg = `전체 ${submitRank}위! ${C.PRIZES[C.PRIZES.length - 1].to}위 안에 들면 시상대에 올라가요`;
   } else if (submitState === 'ok') msg = '기록 저장 완료 (내 최고 기록은 그대로)';
   else if (submitState === 'queued') { msg = '인터넷 연결 후 자동으로 순위표에 올라가요'; mcol = '#8a6a00'; }
   else if (submitState === 'rejected') { msg = '기록을 보내지 못했어요'; mcol = '#8a6a00'; }
@@ -1037,8 +1048,28 @@ const nickForm = document.getElementById('nickform');
 const nickInput = document.getElementById('nickinput');
 const nickErr = document.getElementById('nickerr');
 
+const swBox = document.getElementById('swatches');
+const nickBot = document.getElementById('nickbot');
+let pickColor = playerColor;
+swBox.innerHTML = BOT_COLORS.map((c) => `<button type="button" data-c="${c.id}" style="background:${c.swatch}" aria-label="${c.name}">${c.name}<span>${c.name}</span></button>`).join('');
+function drawNickBot() {
+  const g = nickBot.getContext('2d');
+  g.clearRect(0, 0, nickBot.width, nickBot.height);
+  const base = IMG.botBase.happy || IMG.botBase.idle1;
+  if (base) g.drawImage(recolor(base, pickColor, 'bot_happy_prev'), 0, 0, nickBot.width, nickBot.height);
+  swBox.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.c === pickColor));
+}
+swBox.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-c]');
+  if (!b) return;
+  pickColor = b.dataset.c;
+  drawNickBot();
+});
+
 function openNick(prefill) {
   state = 'nick';
+  pickColor = playerColor;
+  drawNickBot();
   nickInput.value = prefill || '';
   nickErr.textContent = '';
   nickBox.style.display = 'flex';
@@ -1057,6 +1088,8 @@ nickForm.addEventListener('submit', (e) => {
   const err = checkNickname(nick);
   if (err) { nickErr.textContent = err; nickInput.focus(); return; }
   nickname = nick;
+  if (pickColor !== playerColor) { playerColor = pickColor; applyColor(playerColor); }
+  try { localStorage.setItem(C.COLOR_KEY, playerColor); } catch (e3) {}
   nickBox.style.display = 'none';
   try { nickInput.blur(); } catch (e2) {}
   unlockAudio();
@@ -1115,5 +1148,6 @@ window.__game = {
   get letters() { return gotCount; },
   get submit() { return { state: submitState, rank: submitRank }; },
   get nick() { return nickname; },
+  get color() { return playerColor; },
   get collected() { return collected.slice(); },
 };

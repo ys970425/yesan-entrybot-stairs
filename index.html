@@ -25,7 +25,7 @@
       -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
     }
-    canvas {
+    canvas#game {
       position: fixed; left: 0; top: 0;
       display: block;
       touch-action: none;
@@ -56,6 +56,15 @@
     }
     #nickbox button.ghost { background: #e6e9f0; flex: 0.6; }
     #nickbox .note { margin-top: 14px; font-size: 15px; color: #6b7290; }
+    #nickbox .pick { display: flex; align-items: center; gap: 14px; margin: 14px 0 4px; }
+    #nickbox canvas#nickbot { width: 96px; height: 96px; flex: none; image-rendering: auto; }
+    #nickbox .sw { display: grid; grid-template-columns: repeat(6, 1fr); column-gap: 8px; row-gap: 26px; flex: 1; }
+    #nickbox .sw button { flex: none; padding: 0; height: 40px; border-radius: 12px; border: 4px solid #1b2246;
+      font: 700 12px 'Galmuri11', sans-serif; color: transparent; position: relative; }
+    #nickbox .sw button.on { outline: 4px solid #ff8a1e; outline-offset: 2px; }
+    #nickbox .sw button span { position: absolute; left: -4px; right: -4px; bottom: -19px; color: #1b2246; font-size: 12px; font-weight: 400; }
+    #nickbox .sw { padding-bottom: 16px; }
+    #nickbox .lab { text-align: left; font-size: 18px; margin: 12px 0 0; }
   </style>
 </head>
 <body>
@@ -66,6 +75,11 @@
       <p class="sub">TV 순위표에 이 이름으로 올라가요 (8글자까지)</p>
       <input id="nickinput" type="text" maxlength="8" enterkeyhint="go" spellcheck="false" placeholder="예: 계단왕">
       <div class="err" id="nickerr"></div>
+      <div class="lab">내 엔트리봇 색 고르기</div>
+      <div class="pick">
+        <canvas id="nickbot" width="192" height="192"></canvas>
+        <div class="sw" id="swatches"></div>
+      </div>
       <div class="row">
         <button type="button" class="ghost" id="nickcancel">취소</button>
         <button type="submit" id="nickok">시작!</button>

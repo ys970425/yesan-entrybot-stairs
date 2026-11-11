@@ -3,202 +3,447 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>실시간 순위표 — 예산과 함께하는 엔트리봇 무한의 계단 · myoLab(산쌤)</title>
+  <title>예산 e스포츠 한마당 — 엔트리봇 무한의 계단 시상식 · myoLab(산쌤)</title>
   <link rel="icon" href="../icons/icon-192.png">
   <style>
     @font-face { font-family: 'Galmuri11'; src: url('../fonts/Galmuri11-Bold.woff2') format('woff2'); font-weight: 700; }
     @font-face { font-family: 'Galmuri11'; src: url('../fonts/Galmuri11.woff2') format('woff2'); font-weight: 400; }
-    :root { --ink: #1b2246; --px: max(3px, 0.32vw); }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: #fff;
-      font-family: 'Galmuri11', 'Malgun Gothic', sans-serif; font-weight: 700; }
-    /* 도트 테두리 (모서리가 계단처럼 깎인 상자) */
-    .pix { border: 0; box-shadow:
-      0 calc(var(--px) * -1) 0 0 var(--ink), 0 var(--px) 0 0 var(--ink),
-      calc(var(--px) * -1) 0 0 0 var(--ink), var(--px) 0 0 0 var(--ink),
-      0 calc(var(--px) * 2.2) 0 0 rgba(0,0,0,0.28); }
-
-    .bg { position: fixed; inset: -2%; background-position: center; background-size: cover; image-rendering: pixelated;
-      transition: opacity 2.5s ease; animation: drift 40s ease-in-out infinite alternate; }
-    @keyframes drift { to { transform: scale(1.06) translateY(-1%); } }
-    .shade { position: fixed; inset: 0; background: linear-gradient(180deg, rgba(10,16,40,0.35), rgba(10,16,40,0.72) 55%, rgba(10,16,40,0.85)); }
-
-    .wrap { position: relative; height: 100%; display: grid; grid-template-columns: 34% 1fr; gap: 2.4vw; padding: 2.6vh 2.6vw 2vh; }
-
-    /* 왼쪽 */
-    .side { display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; min-height: 0; }
-    .logo .sub { font-size: clamp(16px, 2vw, 40px); color: #ffe066; text-shadow: var(--px) var(--px) 0 var(--ink); }
-    .logo h1 { margin: 0.2vh 0 0; font-size: clamp(30px, 4.6vw, 92px); line-height: 1.08;
-      text-shadow: calc(var(--px) * 1.4) calc(var(--px) * 1.4) 0 var(--ink), calc(var(--px) * -0.6) calc(var(--px) * -0.6) 0 var(--ink); }
-    .logo h1 .b { color: #5fd0ff; }
-    .hero { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 0.5vw; }
-    .bot { width: min(20vw, 32vh); image-rendering: auto; animation: hop 1.1s steps(2) infinite; }
-    @keyframes hop { 50% { transform: translateY(-1.4vh); } }
-    .stairs { display: flex; align-items: flex-end; gap: 0.3vw; margin-bottom: 0.6vh; }
-    .stairs i { display: block; width: 3.2vw; height: 1.2vw; background: #3b8beb; }
-    .stairs i:nth-child(2) { height: 2.4vw; background: #f5a623; } .stairs i:nth-child(3) { height: 3.6vw; background: #9b6bdf; }
-    .stairs i:nth-child(4) { height: 4.8vw; background: #2fb36b; }
-    .apples { display: flex; gap: 0.35vw; justify-content: center; margin-top: 0.6vh; }
-    .apples img { width: min(3.6vw, 6vh); image-rendering: auto; animation: wob 2.4s ease-in-out infinite; }
-    .apples img:nth-child(odd) { animation-delay: -1.2s; }
-    .apples .sp { width: 1vw; }
-    @keyframes wob { 50% { transform: translateY(-0.6vh) rotate(-4deg); } }
-    .tags { display: flex; flex-direction: column; gap: 1.1vh; align-items: center; }
-    .tag { display: inline-block; padding: 0.7vh 1.2vw; font-size: clamp(14px, 1.55vw, 32px); color: var(--ink); background: #7fd3ff; }
-    .tag.gift { background: #ff4d6d; color: #fff; animation: pulse 1.6s ease-in-out infinite; }
-    @keyframes pulse { 50% { transform: scale(1.05); } }
-    .maker { display: flex; align-items: center; gap: 0.8vw; padding: 0.9vh 1.4vw; background: #fff8e6; color: var(--ink); }
-    .maker img { width: min(3.6vw, 6vh); }
-    .maker b { display: block; font-size: clamp(16px, 1.9vw, 38px); line-height: 1.1; }
-    .maker small { display: block; font-size: clamp(11px, 1vw, 20px); font-weight: 400; color: #3b5bab; }
-
-    /* 오른쪽 순위 */
-    .board { display: flex; flex-direction: column; min-height: 0; }
-    .head { display: flex; align-items: center; gap: 1vw; margin-bottom: 1.6vh; }
-    .head h2 { margin: 0; font-size: clamp(24px, 3.2vw, 64px); text-shadow: var(--px) var(--px) 0 var(--ink); }
-    .live { font-size: clamp(12px, 1.3vw, 26px); padding: 0.4vh 0.8vw; background: #e8402e; animation: blink 1.2s steps(2) infinite; }
-    @keyframes blink { 50% { opacity: 0.4; } }
-    .stage { margin-left: auto; font-size: clamp(12px, 1.25vw, 26px); font-weight: 400; padding: 0.5vh 1vw; background: rgba(20,24,40,0.7); }
-    ol { list-style: none; margin: 0; padding: 0 var(--px); display: flex; flex-direction: column; gap: 1.25vh; flex: 1; min-height: 0; }
-    li { position: relative; display: grid; grid-template-columns: 5.6vw 1fr auto; align-items: center; gap: 1.2vw;
-      background: rgba(255,248,230,0.95); color: var(--ink); padding: 0 1.6vw; flex: 1; min-height: 0;
-      font-size: clamp(16px, 2.2vw, 44px); transition: transform 0.3s; isolation: isolate; }
-    li .rk { text-align: center; }
-    li .nm { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    li .sc { font-size: 1.08em; letter-spacing: 0.02em; }
-    li .sc small { font-size: 0.5em; margin-left: 0.3vw; font-weight: 400; }
-    li.top { flex: 1.55; font-size: clamp(20px, 3vw, 60px); }
-    li.r1 { background: linear-gradient(180deg, #ffe680, #ffc928); }
-    li.r2 { background: linear-gradient(180deg, #f4f7fc, #cdd6e6); }
-    li.r3 { background: linear-gradient(180deg, #ffd0a6, #e8975a); }
-    .medal { position: relative; width: 4.6vw; height: 4.6vw; justify-self: center; display: grid; place-items: center;
-      font-size: 0.78em; color: #fff; background: var(--ink); clip-path: polygon(20% 0, 80% 0, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0 80%, 0 20%); }
-    li.r1 .medal { background: #c78a00; } li.r2 .medal { background: #7a8299; } li.r3 .medal { background: #a5541a; }
-    li.r1::before { content: ''; position: absolute; left: 0.6vw; top: 50%; width: 7.6vw; height: 7.6vw; transform: translateY(-56%);
-      background: url('../assets/fx_fire1.webp') center / contain no-repeat; animation: fire 0.28s steps(1) infinite; z-index: -1; }
-    @keyframes fire { 50% { background-image: url('../assets/fx_fire2.webp'); } }
-    li.r1 .crown { font-size: 0.45em; margin-left: 0.6vw; padding: 0.2vh 0.6vw; background: var(--ink); color: #ffe066; vertical-align: 0.3em; }
-    li.empty { color: #4d5577; background: rgba(255,248,230,0.72); font-weight: 400; }
-    li.flash { animation: flash 0.5s steps(2) 6; }
-    @keyframes flash { 50% { background: #ff8a1e; color: #fff; transform: scale(1.025); } }
-
-    .foot { margin-top: 1.3vh; font-size: clamp(11px, 1vw, 20px); font-weight: 400; opacity: 0.9; display: flex; justify-content: space-between; gap: 1vw; }
-    .dot { display: inline-block; width: 0.8em; height: 0.8em; background: #2fb36b; margin-right: 0.4em; vertical-align: -0.05em; }
-    .dot.off { background: #e8402e; }
-    #fs { position: fixed; left: 1vw; top: 1vh; font: 700 16px 'Galmuri11', sans-serif; padding: 10px 16px; border: 0;
-      background: #ffcc33; color: var(--ink); cursor: pointer; z-index: 5; }
-    @media (max-aspect-ratio: 1/1) {
-      .wrap { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-      .side { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2vw; }
-      .tags, .apples { display: none; }
-      li { grid-template-columns: 10vw 1fr auto; font-size: 4vw; } li.top { font-size: 5vw; }
-      .medal { width: 8vw; height: 8vw; }
-    }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1b2246; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    #fs { position: fixed; left: 12px; top: 12px; font: 700 16px 'Galmuri11', sans-serif; padding: 10px 16px;
+      border: 4px solid #1b2246; border-radius: 10px; background: #ffcc33; color: #1b2246; cursor: pointer; z-index: 5; }
   </style>
 </head>
 <body>
-  <div class="bg" id="bgA"></div>
-  <div class="bg" id="bgB" style="opacity:0"></div>
-  <div class="shade"></div>
-
-  <div class="wrap">
-    <section class="side">
-      <div class="logo">
-        <div class="sub">예산과 함께하는</div>
-        <h1>엔트리봇<br><span class="b">무한의 계단</span></h1>
-        <div class="apples" id="apples"></div>
-      </div>
-      <div class="hero">
-        <img class="bot" src="../assets/bot_happy.webp" alt="">
-      </div>
-      <div class="tags">
-        <span class="tag pix">우리 손으로 직접 만든 게임!</span>
-        <span class="tag gift pix">TOP 3 구글 기프트카드!</span>
-      </div>
-      <div class="maker pix">
-        <img src="../assets/bot_idle1.webp" alt="">
-        <div><b>myoLab · 산쌤</b><small>기획 · 개발 · 디자인</small></div>
-      </div>
-    </section>
-
-    <section class="board">
-      <div class="head">
-        <h2>실시간 순위 TOP 10</h2>
-        <span class="live pix">LIVE</span>
-        <span class="stage pix" id="stage"></span>
-      </div>
-      <ol id="list"></ol>
-      <div class="foot"><span id="status"><span class="dot"></span>연결 중...</span><span>3등 안에 들면 이름이 남아요 · 개인정보는 활동 후 폐기 · 제작 myoLab(산쌤)</span></div>
-    </section>
-  </div>
-  <button id="fs" class="pix" type="button">전체 화면</button>
-
+  <canvas id="cv"></canvas>
+  <button id="fs" type="button">전체 화면</button>
   <script type="module">
     import { CONFIG as C } from '../src/config.js';
     import { rpc } from '../src/net.js';
+    import { recolor, COLOR_IDS } from '../src/colors.js';
 
-    const $ = (id) => document.getElementById(id);
-    const list = $('list');
-    let prev = null; // nickname -> score (첫 불러오기 전에는 null)
-
-    // 사과 글자 "엔트리와 예산사랑"
-    $('apples').innerHTML = C.WORD.map((_, i) => (i === 4 ? '<span class="sp"></span>' : '') + `<img src="../assets/letter_${i + 1}.webp" alt="">`).join('');
-
-    // 배경: 예산 명소 9곳을 천천히 돌아가며
-    const bgs = [$('bgA'), $('bgB')];
-    let bi = 0, front = 0;
-    function showStage() {
-      const s = C.STAGES[bi % C.STAGES.length];
-      const next = bgs[1 - front];
-      next.style.backgroundImage = `url('../${s.img}')`;
-      next.style.opacity = 1; bgs[front].style.opacity = 0; front = 1 - front;
-      $('stage').textContent = `지금 배경: ${s.name}`;
-      bi++;
+    // ------------------------------------------------------------
+    // 화면 (가로 1920x1080 기준, 화면 크기에 맞춰 확대·축소)
+    // ------------------------------------------------------------
+    const W = 1920, H = 1080;
+    const cv = document.getElementById('cv');
+    const ctx = cv.getContext('2d');
+    let scale = 1, ox = 0, oy = 0;
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+      scale = Math.min(cv.width / W, cv.height / H);
+      ox = (cv.width - W * scale) / 2; oy = (cv.height - H * scale) / 2;
     }
-    bgs[0].style.backgroundImage = `url('../${C.STAGES[0].img}')`;
-    showStage();
-    setInterval(showStage, 20000);
+    addEventListener('resize', resize); resize();
 
-    function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    const FONT = '"Galmuri11", "Malgun Gothic", sans-serif';
+    const now = () => performance.now() / 1000;
 
-    function render(rows) {
-      const html = [];
-      for (let i = 0; i < C.BOARD_SIZE; i++) {
-        const r = rows[i];
-        const top = i < 3 ? ` top r${i + 1}` : '';
-        const rk = i < 3 ? `<span class="medal">${i + 1}</span>` : `<span class="rk">${i + 1}</span>`;
-        if (!r) {
-          html.push(`<li class="pix empty${top}">${rk}<span class="nm">도전자를 기다려요!</span><span class="sc"></span></li>`);
-          continue;
+    // ------------------------------------------------------------
+    // 그림
+    // ------------------------------------------------------------
+    const IMG = {};
+    const files = {
+      bg: '../assets/board/stage_bg.webp', banner: '../assets/board/banner.webp', podium: '../assets/board/podium.webp',
+      trophy: '../assets/board/trophy.webp', silver: '../assets/board/medal_silver.webp', bronze: '../assets/board/medal_bronze.webp',
+      cheer: '../assets/board/bot_cheer.webp', wave: '../assets/board/bot_wave.webp',
+      back1: '../assets/board/bot_back1.webp', back2: '../assets/board/bot_back2.webp',
+      happy: '../assets/bot_happy.webp', idle: '../assets/bot_idle1.webp',
+      walk1: '../assets/bot_climb1.webp', walk2: '../assets/bot_climb2.webp',
+    };
+    for (let i = 1; i <= 8; i++) files['apple' + i] = `../assets/letter_${i}.webp`;
+    const loadImg = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+    const ready = Promise.all([
+      ...Object.entries(files).map(([k, src]) => loadImg(src).then((im) => { IMG[k] = im; })),
+      document.fonts ? Promise.all([document.fonts.load(`700 40px Galmuri11`), document.fonts.load(`400 40px Galmuri11`)]).catch(() => {}) : null,
+    ]);
+    const bot = (frame, color) => recolor(IMG[frame], color, 'board_' + frame);
+
+    // ------------------------------------------------------------
+    // 자리 배치
+    // ------------------------------------------------------------
+    const POD_S = 1.08;
+    const POD_W = 1029 * POD_S, POD_H = 433 * POD_S;
+    const POD_X = W / 2 - POD_W / 2, POD_Y = 372;
+    const feet = (topY) => POD_Y + topY * POD_S + 40;
+    const PX = (x) => POD_X + x * POD_S;
+    const PODIUM_BOT = 170, CROWD_BOT = 172;
+    // 1위: 1등 단 가운데 / 2~3위: 2등 단 둘 / 4~6위: 3등 단 셋 / 7~10위: 앞줄 구경꾼
+    const SLOTS = [
+      { x: PX(480), y: feet(15), size: PODIUM_BOT, zone: 1 },
+      { x: PX(118), y: feet(129), size: PODIUM_BOT, zone: 2 },
+      { x: PX(268), y: feet(129), size: PODIUM_BOT, zone: 2 },
+      { x: PX(680), y: feet(176), size: PODIUM_BOT, zone: 3 },
+      { x: PX(800), y: feet(176), size: PODIUM_BOT, zone: 3 },
+      { x: PX(920), y: feet(176), size: PODIUM_BOT, zone: 3 },
+      { x: 600, y: 1084, size: CROWD_BOT, zone: 0 },
+      { x: 850, y: 1090, size: CROWD_BOT, zone: 0 },
+      { x: 1080, y: 1090, size: CROWD_BOT, zone: 0 },
+      { x: 1330, y: 1084, size: CROWD_BOT, zone: 0 },
+    ];
+    // 이름 없는 구경꾼 (뒷줄)
+    const FILLERS = [];
+    {
+      let seed = 7;
+      const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+      const xs = [90, 250, 410, 700, 980, 1240, 1520, 1680, 1840, 330, 1590];
+      xs.forEach((x, i) => FILLERS.push({
+        x: x + (rnd() - 0.5) * 40, y: i < 9 ? 1052 : 1110, size: i < 9 ? 138 : 160,
+        color: COLOR_IDS[Math.floor(rnd() * COLOR_IDS.length)], phase: rnd() * 6, arm: rnd() * 6,
+      }));
+    }
+
+    // ------------------------------------------------------------
+    // 출연자 (닉네임별 엔트리봇)
+    // ------------------------------------------------------------
+    const actors = new Map(); // nickname -> actor
+    let rows = [];
+    let firstLoad = true;
+    let celebrate = null; // { text, t }
+    const confetti = [];
+    let bubbles = [];
+
+    function setRows(newRows) {
+      newRows = (newRows || []).slice(0, SLOTS.length);
+      const t = now();
+      const seen = new Set();
+      const oldTop = rows[0] && rows[0].nickname;
+      const oldPodium = new Set(rows.filter((r) => r.rank <= 6).map((r) => r.nickname));
+      newRows.forEach((r, i) => {
+        seen.add(r.nickname);
+        const slot = SLOTS[i];
+        let a = actors.get(r.nickname);
+        if (!a) {
+          a = { nick: r.nickname, x: slot.x + (slot.x < W / 2 ? -260 : 260), y: H + 240, size: slot.size, slot: -1, move: null, leaving: false, phase: Math.random() * 6 };
+          if (firstLoad) { a.x = slot.x; a.y = slot.y; }
+          actors.set(r.nickname, a);
         }
-        const isNew = prev !== null && prev.get(r.nickname) !== r.score;
-        const crown = i === 0 ? '<span class="crown">1등을 이겨 봐!</span>' : '';
-        html.push(`<li class="pix${top}${isNew ? ' flash' : ''}">${rk}<span class="nm">${esc(r.nickname)}${crown}</span><span class="sc">${r.score}<small>계단</small></span></li>`);
+        a.score = r.score; a.color = COLOR_IDS.includes(r.color) ? r.color : 'blue'; a.rank = r.rank; a.leaving = false;
+        if (a.slot !== i) {
+          if (!firstLoad) startMove(a, slot.x, slot.y, slot.size, t);
+          else { a.x = slot.x; a.y = slot.y; a.size = slot.size; }
+          a.slot = i;
+        }
+      });
+      for (const a of actors.values()) {
+        if (!seen.has(a.nick) && !a.leaving) {
+          a.leaving = true; a.slot = -1;
+          startMove(a, a.x + (a.x < W / 2 ? -420 : 420), H + 260, a.size, t);
+        }
       }
-      list.innerHTML = html.join('');
-      prev = new Map(rows.map((r) => [r.nickname, r.score]));
+      if (!firstLoad) {
+        const newTop = newRows[0] && newRows[0].nickname;
+        const entered = newRows.filter((r) => r.rank <= 6 && !oldPodium.has(r.nickname));
+        if (newTop && newTop !== oldTop) celebrateNow(`새로운 1등! ${newTop}`, '#ffd84d');
+        else if (entered.length) celebrateNow(`${entered[0].nickname} 시상대 등장!`, '#7fd3ff');
+      }
+      rows = newRows;
+      firstLoad = false;
     }
 
+    function startMove(a, tx, ty, tsize, t) {
+      const sx = a.vx ?? a.x, sy = a.vy ?? a.y, ss = a.vs ?? a.size;
+      const dist = Math.hypot(tx - sx, ty - sy);
+      a.move = { sx, sy, ss, tx, ty, ts: tsize, t0: t, dur: Math.min(3.2, 1.2 + dist / 650), hop: Math.min(80, 30 + Math.abs(ty - sy) * 0.35) };
+    }
+
+    function celebrateNow(text, color) {
+      celebrate = { text, color, t: now() };
+      for (let i = 0; i < 160; i++) {
+        confetti.push({
+          x: W / 2 + (Math.random() - 0.5) * 900, y: -20 - Math.random() * 300,
+          vx: (Math.random() - 0.5) * 220, vy: 160 + Math.random() * 260, r: Math.random() * 6,
+          vr: (Math.random() - 0.5) * 8, s: 8 + Math.random() * 10,
+          c: ['#ff4d6d', '#ffd84d', '#5fd0ff', '#2fb36b', '#9b6bdf', '#ff8a1e', '#ffffff'][Math.floor(Math.random() * 7)],
+        });
+      }
+    }
+
+    // ------------------------------------------------------------
+    // 그리기 도우미
+    // ------------------------------------------------------------
+    function txt(s, x, y, size, color = '#fff', { align = 'center', ow = 0, outline = '#1b2246', bold = true } = {}) {
+      ctx.font = `${bold ? 700 : 400} ${size}px ${FONT}`;
+      ctx.textAlign = align; ctx.textBaseline = 'middle';
+      if (ow) { ctx.lineWidth = ow; ctx.lineJoin = 'round'; ctx.strokeStyle = outline; ctx.strokeText(s, x, y); }
+      ctx.fillStyle = color; ctx.fillText(s, x, y);
+    }
+    // 도트 느낌: 모서리를 계단처럼 깎은 상자
+    function box(x, y, w, h, fill, line = '#1b2246', lw = 5) {
+      const c = Math.min(8, h / 4);
+      ctx.beginPath();
+      ctx.moveTo(x + c, y); ctx.lineTo(x + w - c, y); ctx.lineTo(x + w - c, y + c / 2); ctx.lineTo(x + w, y + c);
+      ctx.lineTo(x + w, y + h - c); ctx.lineTo(x + w - c / 2, y + h - c); ctx.lineTo(x + w - c, y + h);
+      ctx.lineTo(x + c, y + h); ctx.lineTo(x + c, y + h - c / 2); ctx.lineTo(x, y + h - c);
+      ctx.lineTo(x, y + c); ctx.lineTo(x + c / 2, y + c); ctx.closePath();
+      ctx.fillStyle = fill; ctx.fill();
+      if (lw) { ctx.lineWidth = lw; ctx.strokeStyle = line; ctx.stroke(); }
+    }
+    function drawImg(im, cx, bottom, size, flip = false, alpha = 1) {
+      if (!im) return;
+      ctx.globalAlpha = alpha;
+      if (flip) { ctx.save(); ctx.translate(cx, 0); ctx.scale(-1, 1); ctx.drawImage(im, -size / 2, bottom - size, size, size); ctx.restore(); }
+      else ctx.drawImage(im, cx - size / 2, bottom - size, size, size);
+      ctx.globalAlpha = 1;
+    }
+    function tag(nick, score, x, y, big = false, color = 'rgba(20,24,46,0.88)') {
+      const f = big ? 26 : 20;
+      ctx.font = `700 ${f}px ${FONT}`;
+      const line2 = score != null ? `${score}계단` : '';
+      const w = Math.max(ctx.measureText(nick).width, line2 ? ctx.measureText(line2).width * 0.8 : 0) + 26;
+      const h = line2 ? f * 2.3 : f * 1.5;
+      box(x - w / 2, y, w, h, color, '#ffffff', 3);
+      txt(nick, x, y + (line2 ? f * 0.75 : h / 2 + 1), f, '#fff');
+      if (line2) txt(line2, x, y + f * 1.65, f * 0.8, '#ffe066', { bold: false });
+    }
+
+    // ------------------------------------------------------------
+    // 장면
+    // ------------------------------------------------------------
+    function drawBackground(t) {
+      const bg = IMG.bg;
+      if (bg) {
+        const s = Math.max(W / bg.width, H / bg.height) * 1.03;
+        const w = bg.width * s, h = bg.height * s;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(bg, (W - w) / 2 + Math.sin(t * 0.05) * 10, (H - h) / 2, w, h);
+        ctx.imageSmoothingEnabled = true;
+      } else { ctx.fillStyle = '#7cc6f2'; ctx.fillRect(0, 0, W, H); }
+      const g = ctx.createRadialGradient(W / 2, 520, 60, W / 2, 520, 720);
+      g.addColorStop(0, 'rgba(255,240,170,0.35)'); g.addColorStop(1, 'rgba(255,240,170,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      const g2 = ctx.createLinearGradient(0, 760, 0, H);
+      g2.addColorStop(0, 'rgba(10,16,40,0)'); g2.addColorStop(1, 'rgba(10,16,40,0.45)');
+      ctx.fillStyle = g2; ctx.fillRect(0, 760, W, H - 760);
+    }
+
+    function drawBanner(t) {
+      const b = IMG.banner;
+      if (!b) return;
+      const s = 0.58, w = b.width * s, h = b.height * s;
+      const sway = Math.sin(t * 1.3) * 2;
+      ctx.save(); ctx.translate(W / 2, 8 + h / 2); ctx.rotate(sway * Math.PI / 180 * 0.4);
+      ctx.drawImage(b, -w / 2, -h / 2 + sway, w, h);
+      ctx.restore();
+    }
+
+    function drawSidePanels(t) {
+      // 왼쪽: 게임 이름 + 상품 안내
+      const lx = 40, ly = 250;
+      box(lx, ly, 290, 470, 'rgba(255,248,230,0.94)');
+      txt('엔트리봇', lx + 145, ly + 46, 40, '#1b2246');
+      txt('무한의 계단', lx + 145, ly + 94, 40, '#2c86d6');
+      for (let i = 0; i < 8; i++) {
+        const im = IMG['apple' + (i + 1)];
+        if (im) ctx.drawImage(im, lx + 18 + i * 32 + (i >= 4 ? 6 : 0), ly + 124 + Math.sin(t * 3 + i) * 3, 30, 30);
+      }
+      txt('구글 기프트카드', lx + 145, ly + 196, 24, '#e8402e');
+      const prize = [['1등', '1명', '3만원', '#c78a00'], ['2등', '2명', '2만원', '#7a8299'], ['3등', '3명', '1만원', '#a5541a']];
+      prize.forEach(([a, b, c, col], i) => {
+        const y = ly + 238 + i * 64;
+        box(lx + 18, y, 254, 52, '#ffffff', col, 4);
+        txt(a, lx + 58, y + 27, 26, col);
+        txt(b, lx + 128, y + 27, 22, '#1b2246', { bold: false });
+        txt(c, lx + 212, y + 27, 26, '#1b2246');
+      });
+      txt('총 10만원!', lx + 145, ly + 442, 26, '#e8402e');
+
+      // 오른쪽: 1~10위 한눈에
+      const rx = W - 330, ry = 250;
+      box(rx, ry, 290, 470, 'rgba(20,24,46,0.88)', '#ffffff', 4);
+      txt('실시간 TOP 10', rx + 120, ry + 34, 26, '#ffe066');
+      const blink = Math.floor(t * 1.6) % 2 === 0;
+      box(rx + 222, ry + 18, 54, 32, blink ? '#e8402e' : '#8a2a20', '#ffffff', 2);
+      txt('LIVE', rx + 249, ry + 35, 16, '#fff');
+      for (let i = 0; i < 10; i++) {
+        const r = rows[i], y = ry + 74 + i * 39;
+        const col = i === 0 ? '#ffd84d' : i < 3 ? '#dfe6f2' : i < 6 ? '#f2b179' : '#ffffff';
+        txt(String(i + 1), rx + 30, y, 22, col);
+        if (r) {
+          ctx.save(); ctx.beginPath(); ctx.rect(rx + 52, y - 18, 150, 36); ctx.clip();
+          txt(r.nickname, rx + 56, y, 21, '#fff', { align: 'left' }); ctx.restore();
+          txt(String(r.score), rx + 270, y, 21, col, { align: 'right' });
+        } else txt('-', rx + 120, y, 20, '#6b7290', { bold: false });
+      }
+    }
+
+    function drawPodium() {
+      if (IMG.podium) ctx.drawImage(IMG.podium, POD_X, POD_Y, POD_W, POD_H);
+      const lab = [[PX(193), '2등 2만원 x2', '#7a8299'], [PX(480), '1등 3만원', '#c78a00'], [PX(800), '3등 1만원 x3', '#a5541a']];
+      for (const [x, s, col] of lab) {
+        ctx.font = `700 22px ${FONT}`;
+        const w = ctx.measureText(s).width + 26;
+        box(x - w / 2, POD_Y + POD_H - 62, w, 38, '#ffffff', col, 4);
+        txt(s, x, POD_Y + POD_H - 42, 22, col);
+      }
+    }
+
+    function drawEmptySlots(t) {
+      for (let i = rows.length; i < 6; i++) {
+        const s = SLOTS[i];
+        drawImg(bot('idle', 'black'), s.x, s.y + Math.sin(t * 2 + i) * 2, s.size, false, 0.28);
+        txt('?', s.x, s.y - s.size * 0.55, 54, '#ffffff', { ow: 8 });
+        tag('도전자 모집!', null, s.x, s.y + 12, false, 'rgba(232,64,46,0.85)');
+      }
+    }
+
+    function drawFillers(t, front) {
+      for (const f of FILLERS) {
+        if ((f.y > 1080) !== front) continue;
+        const up = Math.sin(t * 2.2 + f.phase) > 0.55;
+        const bob = Math.abs(Math.sin(t * 3 + f.phase)) * 6;
+        drawImg(bot(up ? 'back2' : 'back1', f.color), f.x, f.y - bob, f.size, Math.sin(f.arm) > 0);
+      }
+    }
+
+    function actorPose(a, t) {
+      const z = a.slot >= 0 ? SLOTS[a.slot].zone : 0;
+      if (z === 1) { const j = Math.abs(Math.sin(t * 3.2 + a.phase)); return { frame: j > 0.5 ? 'cheer' : 'happy', lift: j * 26 }; }
+      if (z === 2) { const j = Math.sin(t * 2.6 + a.phase); return { frame: j > 0.2 ? 'cheer' : 'happy', lift: Math.max(0, j) * 14 }; }
+      if (z === 3) return { frame: 'wave', lift: Math.abs(Math.sin(t * 2 + a.phase)) * 5, flip: Math.sin(t * 4 + a.phase) > 0.3 };
+      const up = Math.sin(t * 1.9 + a.phase) > 0.4;
+      return { frame: up ? 'back2' : 'back1', lift: Math.abs(Math.sin(t * 3 + a.phase)) * 6, flip: Math.sin(a.phase * 3) > 0 };
+    }
+
+    function drawActor(a, t) {
+      let x = a.x, y = a.y, size = a.size, frame, flip = false, lift = 0;
+      if (a.move) {
+        const m = a.move, p = Math.min(1, (t - m.t0) / m.dur);
+        const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        x = m.sx + (m.tx - m.sx) * e;
+        y = m.sy + (m.ty - m.sy) * e - Math.sin(Math.PI * p) * m.hop;
+        size = m.ss + (m.ts - m.ss) * e;
+        frame = Math.floor(t / 0.13) % 2 ? 'walk1' : 'walk2';
+        flip = m.tx < m.sx;
+        if (p >= 1) { a.x = m.tx; a.y = m.ty; a.size = m.ts; a.move = null; if (a.leaving) { actors.delete(a.nick); return; } }
+      } else {
+        const pose = actorPose(a, t);
+        frame = pose.frame; lift = pose.lift; flip = !!pose.flip;
+      }
+      a.vx = x; a.vy = y; a.vs = size; // 지금 보이는 위치 (이동 중에 순위가 또 바뀌면 여기서 출발)
+      drawImg(bot(frame, a.color), x, y - lift, size, flip);
+      if (a.leaving) return;
+      const z = !a.move && a.slot >= 0 ? SLOTS[a.slot].zone : -1;
+      if (z === 1 && IMG.trophy) {
+        const ts = size * 0.62;
+        ctx.drawImage(IMG.trophy, x - ts / 2, y - lift - size * 0.9 - ts * 0.9, ts, ts * 0.98); // 두 손 위로 든 트로피
+      } else if ((z === 2 || z === 3) && IMG.silver && IMG.bronze) {
+        const md = z === 2 ? IMG.silver : IMG.bronze;
+        const ms = size * 0.3, mw = ms * (md.width / md.height);
+        ctx.drawImage(md, x - mw / 2 + (flip ? 4 : 0), y - lift - size * 0.56, mw, ms);
+      }
+      if (z >= 1) tag(a.nick, a.score, x, y + 10, z === 1);
+      else if (z === 0) tag(a.nick, a.score, x, y - size - 52);
+      else if (a.move && a.slot >= 0) tag(a.nick, null, x, y - size - 40);
+    }
+
+    const LINES = ['와~!', '대박!', '나도 할래!', '1등 멋지다!', '엔트리 최고!', '우와~', '짝짝짝!', '다음엔 내가!', '예산 최고!'];
+    function drawBubbles(t) {
+      if (Math.random() < 0.012 && bubbles.length < 3) {
+        const pool = FILLERS.concat([...actors.values()].filter((a) => !a.move && a.slot >= 6));
+        const who = pool[Math.floor(Math.random() * pool.length)];
+        if (who) bubbles.push({ x: who.x, y: who.y - (who.size || 180) - 10, s: LINES[Math.floor(Math.random() * LINES.length)], t });
+      }
+      bubbles = bubbles.filter((b) => t - b.t < 1.8);
+      for (const b of bubbles) {
+        ctx.globalAlpha = Math.max(0, Math.min(1, (t - b.t) * 5, (1.8 - (t - b.t)) * 4));
+        ctx.font = `700 24px ${FONT}`;
+        const w = ctx.measureText(b.s).width + 28;
+        const y = b.y - 40 - (t - b.t) * 12;
+        box(b.x - w / 2, y, w, 40, '#ffffff', '#1b2246', 4);
+        ctx.beginPath(); ctx.moveTo(b.x - 8, y + 40); ctx.lineTo(b.x, y + 54); ctx.lineTo(b.x + 8, y + 40); ctx.fillStyle = '#fff'; ctx.fill();
+        txt(b.s, b.x, y + 21, 24, '#1b2246');
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function drawCelebrate(t, dt) {
+      for (const p of confetti) {
+        p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt; p.vx *= 0.99;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
+      }
+      for (let i = confetti.length - 1; i >= 0; i--) if (confetti[i].y > H + 30) confetti.splice(i, 1);
+      if (celebrate) {
+        const e = t - celebrate.t;
+        if (e > 4) { celebrate = null; return; }
+        const s = 1 + Math.max(0, 0.3 - e) * 1.5;
+        ctx.globalAlpha = Math.max(0, Math.min(1, e * 4, (4 - e) * 2));
+        ctx.font = `700 ${Math.round(64 * s)}px ${FONT}`;
+        const w = ctx.measureText(celebrate.text).width + 80;
+        box(W / 2 - w / 2, 214, w, 96 * s, 'rgba(20,24,46,0.9)', celebrate.color, 6);
+        txt(celebrate.text, W / 2, 214 + 50 * s, Math.round(64 * s), celebrate.color);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function drawFooter() {
+      box(40, H - 66, 520, 50, 'rgba(255,248,230,0.95)');
+      if (IMG.idle) ctx.drawImage(bot('idle', 'blue'), 48, H - 66, 46, 46);
+      txt('제작 myoLab · 산쌤', 100, H - 41, 24, '#1b2246', { align: 'left' });
+      txt('우리 손으로 만든 게임!', 450, H - 41, 15, '#3b5bab', { bold: false });
+      ctx.font = `400 16px ${FONT}`;
+      const sw = ctx.measureText(statusText).width + 28;
+      box(W - 40 - sw, H - 52, sw, 34, 'rgba(20,24,46,0.85)', '#ffffff', 2);
+      txt(statusText, W - 54, H - 35, 16, statusOk ? '#ffffff' : '#ffb3a8', { align: 'right', bold: false });
+    }
+
+    // ------------------------------------------------------------
+    // 메인 루프
+    // ------------------------------------------------------------
+    let last = now();
+    function frame() {
+      const t = now(), dt = Math.min(0.05, t - last); last = t;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = '#1b2246'; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.setTransform(scale, 0, 0, scale, ox, oy);
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      drawBackground(t);
+      drawFillers(t, false);
+      drawPodium();
+      drawEmptySlots(t);
+      [...actors.values()].sort((a, b) => (a.vy ?? a.y) - (b.vy ?? b.y)).forEach((a) => drawActor(a, t));
+      drawFillers(t, true);
+      drawBubbles(t);
+      drawBanner(t);
+      drawSidePanels(t);
+      drawCelebrate(t, dt);
+      drawFooter();
+      ctx.restore();
+      requestAnimationFrame(frame);
+    }
+
+    // ------------------------------------------------------------
+    // 서버에서 순위 받아오기
+    // ------------------------------------------------------------
+    let statusText = '연결 중...', statusOk = true;
     async function refresh() {
       try {
-        const rows = await rpc('stairs_board', { lim: C.BOARD_SIZE });
-        render(rows || []);
-        $('status').innerHTML = `<span class="dot"></span>업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
+        const data = await rpc('stairs_board', { lim: C.BOARD_SIZE });
+        setRows(data || []);
+        statusOk = true;
+        statusText = `업데이트 ${new Date().toLocaleTimeString('ko-KR')} · 개인정보는 활동 후 폐기`;
       } catch (e) {
-        $('status').innerHTML = '<span class="dot off"></span>인터넷 연결을 확인하는 중...';
+        statusOk = false;
+        statusText = '인터넷 연결을 확인하는 중...';
       }
     }
-    render([]); prev = null;
-    refresh();
-    setInterval(refresh, C.BOARD_REFRESH_SEC * 1000);
+
+    ready.then(() => {
+      requestAnimationFrame(frame);
+      if (!window.__noFetch) { refresh(); setInterval(refresh, C.BOARD_REFRESH_SEC * 1000); }
+    });
 
     // 전체 화면 + 화면 꺼짐 방지
-    const fs = $('fs');
+    const fs = document.getElementById('fs');
     let lock = null;
     async function keepAwake() { try { if ('wakeLock' in navigator && !lock) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; }); } } catch (e) {} }
     fs.addEventListener('click', async () => { try { await document.documentElement.requestFullscreen(); } catch (e) {} keepAwake(); });
     document.addEventListener('fullscreenchange', () => { fs.style.display = document.fullscreenElement ? 'none' : ''; });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) keepAwake(); });
+
+    // 테스트용
+    window.__board = { setRows, get actors() { return actors.size; } };
   </script>
 </body>
 </html>
