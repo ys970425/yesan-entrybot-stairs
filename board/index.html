@@ -61,7 +61,7 @@
     const bot = (frame, color) => recolor(IMG[frame], color, 'board_' + frame);
     // 동작 그림마다 목(nx, ny)과 두 손 가운데(hx, hy) 위치 (384칸 그림 기준)
     const ANCH = {
-      cheer: { nx: 190, ny: 170, hx: 190, hy: 118 },
+      cheer: { nx: 190, ny: 176, hx: 190, hy: 118 },
       happy: { nx: 200, ny: 190, hx: 196, hy: 134 },
       wave: { nx: 194, ny: 192 },
     };
@@ -343,9 +343,9 @@
       // 2·3등 메달: 목에서 배 위로 늘어뜨림
       if ((z === 2 || z === 3) && IMG.silver && IMG.bronze && an) {
         const md = z === 2 ? IMG.silver : IMG.bronze;
-        const mh = size * 0.34, mw = mh * (md.width / md.height);
+        const mh = size * 0.3, mw = mh * (md.width / md.height);
         const nk = P(an.nx, an.ny);
-        ctx.drawImage(md, nk.x - mw / 2, nk.y - size * 0.035, mw, mh);
+        ctx.drawImage(md, nk.x - mw / 2, nk.y, mw, mh);
       }
       if (z >= 1) tag(a.nick, a.score, x, y + 10, z === 1);
       else if (z === 0) tag(a.nick, a.score, x, y - size - 52);
