@@ -238,7 +238,7 @@
         const im = IMG['apple' + (i + 1)];
         if (im) ctx.drawImage(im, lx + 18 + i * 32 + (i >= 4 ? 6 : 0), ly + 124 + Math.sin(t * 3 + i) * 3, 30, 30);
       }
-      txt('구글 기프트카드', lx + 145, ly + 196, 24, '#e8402e');
+      txt('상품 안내', lx + 145, ly + 196, 24, '#e8402e');
       const prize = [['1등', '1명', '3만원', '#c78a00'], ['2등', '2명', '2만원', '#7a8299'], ['3등', '3명', '1만원', '#a5541a']];
       prize.forEach(([a, b, c, col], i) => {
         const y = ly + 238 + i * 64;
