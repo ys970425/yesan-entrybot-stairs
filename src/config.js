@@ -78,4 +78,5 @@ export const CONFIG = {
   CREDIT: '제작: myoLab(산쌤)',
   BEST_KEY: 'yesanEntrybotStairs.best',
   MUTE_KEY: 'yesanEntrybotStairs.mute',
+  LAYOUT_KEY: 'yesanEntrybotStairs.layout',
 };

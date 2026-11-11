@@ -596,16 +596,58 @@ function drawHud() {
   text(`BEST ${best}`, GX + GW / 2, 300, 30, '#ffe066', { outline: '#1b2246', ow: 7 });
 }
 
+// ------------------------------------------------------------
+// 조작 버튼 위치 (학생이 끌어서 옮길 수 있음, 태블릿에 저장)
+// ------------------------------------------------------------
+let ctrlLayout = null; // { turn: {fx, fy}, climb: {fx, fy} } — 버튼 가운데 위치(게임 화면 폭·높이 비율)
+try { ctrlLayout = JSON.parse(localStorage.getItem(C.LAYOUT_KEY) || 'null'); } catch (e) { ctrlLayout = null; }
+let dragging = null;   // { id, key, ox, oy }
+
+function saveLayout() {
+  try {
+    if (ctrlLayout) localStorage.setItem(C.LAYOUT_KEY, JSON.stringify(ctrlLayout));
+    else localStorage.removeItem(C.LAYOUT_KEY);
+  } catch (e) {}
+}
+
+function ctrlSize() { return Math.min(190, GW * 0.3); }
+
+// 버튼 가운데 좌표
+function ctrlCenter(id) {
+  const size = ctrlSize();
+  if (ctrlLayout && ctrlLayout[id]) return { x: GX + ctrlLayout[id].fx * GW, y: ctrlLayout[id].fy * VH };
+  const y = VH - size / 2 - 60;
+  return id === 'turn' ? { x: GX + 40 + size / 2, y } : { x: GX + GW - 40 - size / 2, y };
+}
+
+// 화면을 누른 곳에서 더 가까운 버튼
+function nearestCtrl(p) {
+  const a = ctrlCenter('turn'), b = ctrlCenter('climb');
+  return Math.hypot(p.x - a.x, p.y - a.y) <= Math.hypot(p.x - b.x, p.y - b.y) ? 'turn' : 'climb';
+}
+
+function moveCtrl(id, x, y) {
+  const size = ctrlSize();
+  const minX = GX + size / 2 + 8, maxX = GX + GW - size / 2 - 8;
+  const minY = 330 + size / 2, maxY = VH - size / 2 - 16;
+  const cx = Math.min(maxX, Math.max(minX, x)), cy = Math.min(maxY, Math.max(minY, y));
+  if (!ctrlLayout) {
+    const t = ctrlCenter('turn'), c = ctrlCenter('climb');
+    ctrlLayout = { turn: { fx: (t.x - GX) / GW, fy: t.y / VH }, climb: { fx: (c.x - GX) / GW, fy: c.y / VH } };
+  }
+  ctrlLayout[id] = { fx: (cx - GX) / GW, fy: cy / VH };
+}
+
 function drawControls() {
   const now = clock();
-  const size = Math.min(190, GW * 0.3);
-  const y = VH - size - 60;
-  const defs = [
-    { id: 'turn', x: GX + 40, label: '방향 바꾸기' },
-    { id: 'climb', x: GX + GW - 40 - size, label: '오르기' },
-  ];
+  const size = ctrlSize();
+  const defs = ['turn', 'climb'].map((id) => {
+    const c = ctrlCenter(id);
+    return { id, x: c.x - size / 2, y: c.y - size / 2, label: id === 'turn' ? '방향 바꾸기' : '오르기' };
+  });
   for (const d of defs) {
-    const pressed = now - pressAt[d.id] < 0.1;
+    const y = d.y;
+    const pressed = now - pressAt[d.id] < 0.1 || (dragging && dragging.id === d.id);
     const oy = pressed ? 8 : 0;
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     rrect(d.x, y + 10, size, size, 30); ctx.fill();
@@ -688,7 +730,9 @@ function drawTitle() {
   const bw = Math.min(460, GW - 120);
   button('start', cx - bw / 2, 830, bw, 130, '시작하기', { size: 60 });
   text(`최고 기록  ${best}계단`, cx, 1010, 38, '#ffffff', { ow: 8 });
-  text('왼쪽: 방향 바꾸기   오른쪽: 오르기', cx, 1070, 26, '#ffffff', { ow: 6, bold: false });
+  text('방향 바꾸기 버튼과 오르기 버튼으로 올라가요', cx, 1060, 26, '#ffffff', { ow: 6, bold: false });
+  const lw2 = 300;
+  button('layout', cx - lw2 / 2, 1092, lw2, 64, '버튼 위치 바꾸기', { size: 28, fill: '#7fd3ff' });
 
   // 제작자 (3초 길게 누르면 최고기록 초기화)
   const cy = VH - 60;
@@ -761,11 +805,28 @@ function drawOver() {
   }
 }
 
+function drawLayout() {
+  drawBg(0);
+  ctx.fillStyle = 'rgba(10,16,40,0.45)'; ctx.fillRect(0, 0, VW, VH);
+  const cx = GX + GW / 2;
+  text('버튼 위치 바꾸기', cx, 90, 56, '#ffe066', { ow: 10 });
+  text('버튼을 손가락으로 끌어서 편한 곳에 놓으세요', cx, 160, 28, '#ffffff', { ow: 6, bold: false });
+  text('화면을 누르면 더 가까운 버튼으로 움직여요', cx, 200, 24, '#cfe8ff', { ow: 5, bold: false });
+  const bw = Math.min(260, (GW - 90) / 2);
+  button('layoutDone', cx - bw - 15, 236, bw, 80, '완료', { size: 38 });
+  button('layoutReset', cx + 15, 236, bw, 80, '원래대로', { size: 34, fill: '#e6e9f0' });
+  // 버튼이 놓일 수 있는 범위
+  ctx.setLineDash([12, 10]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.strokeRect(GX + 8, 330, GW - 16, VH - 330 - 16); ctx.setLineDash([]);
+  drawControls();
+}
+
 function draw() {
   buttons = [];
   ctx.setTransform(k, 0, 0, k, 0, 0);
   if (state === 'loading' || !ready) { drawLoading(); return; }
   if (state === 'title') { drawTitle(); return; }
+  if (state === 'layout') { drawLayout(); return; }
   drawGame();
   if (state === 'paused') drawPause();
   if (state === 'over') drawOver();
@@ -801,47 +862,93 @@ function onButton(id) {
     case 'resume': sfx.click(); state = pausedFrom; break;
     case 'retry': sfx.click(); resetGame(); break;
     case 'home': sfx.click(); state = 'title'; break;
+    case 'layout': sfx.click(); state = 'layout'; break;
+    case 'layoutDone': sfx.click(); saveLayout(); state = 'title'; break;
+    case 'layoutReset': sfx.click(); ctrlLayout = null; saveLayout(); break;
   }
 }
 
 // 터치는 touchstart로 손가락 하나하나를 바로 처리 (연타가 씹히지 않도록),
 // 마우스·펜은 pointerdown으로 처리
-function handleTap(clientX, clientY) {
+function toLogicalXY(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (clientX - r.left) * dpr / k, y: (clientY - r.top) * dpr / k };
+}
+
+function handleTap(clientX, clientY, key) {
   unlockAudio();
   if (!ready) return;
-  const r = canvas.getBoundingClientRect();
-  const p = { x: (clientX - r.left) * dpr / k, y: (clientY - r.top) * dpr / k };
+  const p = toLogicalXY(clientX, clientY);
   const id = hit(p);
   if (state === 'play' || state === 'ready') {
     if (boostActive) { doAction('climb'); return; } // 부스터 중: 화면 어디든 터치하면 오름
     if (id === 'pause') { onButton('pause'); return; }
-    doAction(p.x < GX + GW / 2 ? 'turn' : 'climb');
+    doAction(nearestCtrl(p)); // 더 가까운 버튼으로 인식
+    return;
+  }
+  if (state === 'layout') {
+    if (id) { onButton(id); return; }
+    // 버튼 위를 눌렀으면 끌기 시작
+    const size = ctrlSize();
+    for (const cid of ['turn', 'climb']) {
+      const c = ctrlCenter(cid);
+      if (Math.abs(p.x - c.x) <= size / 2 + 10 && Math.abs(p.y - c.y) <= size / 2 + 10) {
+        dragging = { id: cid, key, ox: p.x - c.x, oy: p.y - c.y };
+        return;
+      }
+    }
     return;
   }
   if (state === 'title' && id === 'credit') { creditHold = clock(); return; }
   if (id) onButton(id);
 }
 
+function handleMove(clientX, clientY, key) {
+  if (!dragging || dragging.key !== key || state !== 'layout') return;
+  const p = toLogicalXY(clientX, clientY);
+  moveCtrl(dragging.id, p.x - dragging.ox, p.y - dragging.oy);
+}
+
+function handleUp(key) {
+  creditHold = null;
+  if (dragging && (key === undefined || dragging.key === key)) dragging = null;
+}
+
 canvas.addEventListener('touchstart', (e) => {
   if (e.cancelable) e.preventDefault();
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
-    handleTap(t.clientX, t.clientY);
+    handleTap(t.clientX, t.clientY, 't' + t.identifier);
   }
 }, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (e.cancelable) e.preventDefault();
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    handleMove(t.clientX, t.clientY, 't' + t.identifier);
+  }
+}, { passive: false });
+
+function touchEnd(e) {
+  for (let i = 0; i < e.changedTouches.length; i++) handleUp('t' + e.changedTouches[i].identifier);
+}
+canvas.addEventListener('touchend', touchEnd);
+canvas.addEventListener('touchcancel', touchEnd);
 
 canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') return; // 터치는 위에서 처리
   e.preventDefault();
-  handleTap(e.clientX, e.clientY);
+  handleTap(e.clientX, e.clientY, 'p' + e.pointerId);
 }, { passive: false });
-
-function endHold() { creditHold = null; }
-canvas.addEventListener('pointerup', endHold);
-canvas.addEventListener('pointercancel', endHold);
-canvas.addEventListener('pointerleave', endHold);
-canvas.addEventListener('touchend', endHold);
-canvas.addEventListener('touchcancel', endHold);
+canvas.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'touch') return;
+  handleMove(e.clientX, e.clientY, 'p' + e.pointerId);
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => canvas.addEventListener(ev, (e) => {
+  if (e.pointerType === 'touch') { creditHold = null; return; }
+  handleUp('p' + e.pointerId);
+}));
 
 const KEY_TURN = ['ArrowLeft', 'a', 'A', 'f', 'F'];
 const KEY_CLIMB = ['ArrowRight', 'd', 'D', 'j', 'J'];
@@ -904,7 +1011,7 @@ function frame(now) {
       creditHold = null;
       if (window.confirm('최고기록을 0으로 초기화할까요?')) { best = 0; saveBest(); }
     }
-    if (state !== 'paused' && state !== 'title') update(dt);
+    if (state !== 'paused' && state !== 'title' && state !== 'layout') update(dt);
   }
   draw();
   requestAnimationFrame(frame);
