@@ -59,6 +59,12 @@
       document.fonts ? Promise.all([document.fonts.load(`700 40px Galmuri11`), document.fonts.load(`400 40px Galmuri11`)]).catch(() => {}) : null,
     ]);
     const bot = (frame, color) => recolor(IMG[frame], color, 'board_' + frame);
+    // 동작 그림마다 목(nx, ny)과 두 손 가운데(hx, hy) 위치 (384칸 그림 기준)
+    const ANCH = {
+      cheer: { nx: 190, ny: 170, hx: 190, hy: 118 },
+      happy: { nx: 200, ny: 190, hx: 196, hy: 134 },
+      wave: { nx: 194, ny: 192 },
+    };
 
     // ------------------------------------------------------------
     // 자리 배치
@@ -322,16 +328,24 @@
         frame = pose.frame; lift = pose.lift; flip = !!pose.flip;
       }
       a.vx = x; a.vy = y; a.vs = size; // 지금 보이는 위치 (이동 중에 순위가 또 바뀌면 여기서 출발)
+      const z = !a.move && a.slot >= 0 && !a.leaving ? SLOTS[a.slot].zone : -1;
+      const an = ANCH[frame];
+      // 그림 안의 한 점(384칸 기준) → 화면 좌표
+      const P = (cx, cy) => ({ x: flip ? x + size / 2 - cx / 384 * size : x - size / 2 + cx / 384 * size, y: y - lift - size + cy / 384 * size });
+      // 1등 트로피: 엔트리봇 뒤에서 두 손으로 머리 위로 들어 올린 모습
+      if (z === 1 && IMG.trophy && an && an.hy) {
+        const ts = size * 0.5, th = ts * 0.98;
+        const h = P(an.hx, an.hy);
+        ctx.drawImage(IMG.trophy, h.x - ts / 2, h.y - th * 0.95 - size * 0.14, ts, th);
+      }
       drawImg(bot(frame, a.color), x, y - lift, size, flip);
       if (a.leaving) return;
-      const z = !a.move && a.slot >= 0 ? SLOTS[a.slot].zone : -1;
-      if (z === 1 && IMG.trophy) {
-        const ts = size * 0.62;
-        ctx.drawImage(IMG.trophy, x - ts / 2, y - lift - size * 0.9 - ts * 0.9, ts, ts * 0.98); // 두 손 위로 든 트로피
-      } else if ((z === 2 || z === 3) && IMG.silver && IMG.bronze) {
+      // 2·3등 메달: 목에서 배 위로 늘어뜨림
+      if ((z === 2 || z === 3) && IMG.silver && IMG.bronze && an) {
         const md = z === 2 ? IMG.silver : IMG.bronze;
-        const ms = size * 0.3, mw = ms * (md.width / md.height);
-        ctx.drawImage(md, x - mw / 2 + (flip ? 4 : 0), y - lift - size * 0.56, mw, ms);
+        const mh = size * 0.34, mw = mh * (md.width / md.height);
+        const nk = P(an.nx, an.ny);
+        ctx.drawImage(md, nk.x - mw / 2, nk.y - size * 0.035, mw, mh);
       }
       if (z >= 1) tag(a.nick, a.score, x, y + 10, z === 1);
       else if (z === 0) tag(a.nick, a.score, x, y - size - 52);
