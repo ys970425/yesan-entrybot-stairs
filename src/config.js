@@ -79,4 +79,13 @@ export const CONFIG = {
   BEST_KEY: 'yesanEntrybotStairs.best',
   MUTE_KEY: 'yesanEntrybotStairs.mute',
   LAYOUT_KEY: 'yesanEntrybotStairs.layout',
+  QUEUE_KEY: 'yesanEntrybotStairs.queue',
+  NICK_KEY: 'yesanEntrybotStairs.nick',
+
+  // 순위표 서버 (Supabase) — 공개해도 되는 키만 넣습니다
+  SUPABASE_URL: 'https://bdbcabqwuqjdbxxtvgrg.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_iKwSQBM2Lyt9qNAZFRCbwA_jc--OwqE',
+  NICK_MAX: 8,
+  BOARD_SIZE: 10,         // TV 순위표에 보여 줄 등수
+  BOARD_REFRESH_SEC: 5,   // TV 순위표 새로고침 간격
 };

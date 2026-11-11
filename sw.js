@@ -1,10 +1,10 @@
 // 오프라인 실행용: 처음 열 때 모든 파일을 저장해 두고, 이후에는 저장본으로 실행
 // 파일을 고쳐서 다시 배포할 때는 VERSION 숫자를 올립니다.
-const VERSION = 'v11';
+const VERSION = 'v13';
 const CACHE = `yesan-stairs-${VERSION}`;
 const FILES = [
   './', './index.html', './manifest.json',
-  './src/main.js', './src/config.js', './src/audio.js',
+  './src/main.js', './src/config.js', './src/audio.js', './src/net.js',
   './fonts/Galmuri11-Bold.woff2', './fonts/Galmuri11.woff2',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png',
   './assets/bg_01.webp', './assets/bg_02.webp', './assets/bg_03.webp', './assets/bg_04.webp',

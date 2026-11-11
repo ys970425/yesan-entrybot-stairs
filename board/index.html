@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>실시간 순위표 — 예산과 함께하는 엔트리봇 무한의 계단 · myoLab(산쌤)</title>
+  <link rel="icon" href="../icons/icon-192.png">
+  <style>
+    @font-face { font-family: 'Galmuri11'; src: url('../fonts/Galmuri11-Bold.woff2') format('woff2'); font-weight: 700; }
+    @font-face { font-family: 'Galmuri11'; src: url('../fonts/Galmuri11.woff2') format('woff2'); font-weight: 400; }
+    :root { --ink: #1b2246; --px: max(3px, 0.32vw); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: #fff;
+      font-family: 'Galmuri11', 'Malgun Gothic', sans-serif; font-weight: 700; }
+    /* 도트 테두리 (모서리가 계단처럼 깎인 상자) */
+    .pix { border: 0; box-shadow:
+      0 calc(var(--px) * -1) 0 0 var(--ink), 0 var(--px) 0 0 var(--ink),
+      calc(var(--px) * -1) 0 0 0 var(--ink), var(--px) 0 0 0 var(--ink),
+      0 calc(var(--px) * 2.2) 0 0 rgba(0,0,0,0.28); }
+
+    .bg { position: fixed; inset: -2%; background-position: center; background-size: cover; image-rendering: pixelated;
+      transition: opacity 2.5s ease; animation: drift 40s ease-in-out infinite alternate; }
+    @keyframes drift { to { transform: scale(1.06) translateY(-1%); } }
+    .shade { position: fixed; inset: 0; background: linear-gradient(180deg, rgba(10,16,40,0.35), rgba(10,16,40,0.72) 55%, rgba(10,16,40,0.85)); }
+
+    .wrap { position: relative; height: 100%; display: grid; grid-template-columns: 34% 1fr; gap: 2.4vw; padding: 2.6vh 2.6vw 2vh; }
+
+    /* 왼쪽 */
+    .side { display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; min-height: 0; }
+    .logo .sub { font-size: clamp(16px, 2vw, 40px); color: #ffe066; text-shadow: var(--px) var(--px) 0 var(--ink); }
+    .logo h1 { margin: 0.2vh 0 0; font-size: clamp(30px, 4.6vw, 92px); line-height: 1.08;
+      text-shadow: calc(var(--px) * 1.4) calc(var(--px) * 1.4) 0 var(--ink), calc(var(--px) * -0.6) calc(var(--px) * -0.6) 0 var(--ink); }
+    .logo h1 .b { color: #5fd0ff; }
+    .hero { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 0.5vw; }
+    .bot { width: min(20vw, 32vh); image-rendering: auto; animation: hop 1.1s steps(2) infinite; }
+    @keyframes hop { 50% { transform: translateY(-1.4vh); } }
+    .stairs { display: flex; align-items: flex-end; gap: 0.3vw; margin-bottom: 0.6vh; }
+    .stairs i { display: block; width: 3.2vw; height: 1.2vw; background: #3b8beb; }
+    .stairs i:nth-child(2) { height: 2.4vw; background: #f5a623; } .stairs i:nth-child(3) { height: 3.6vw; background: #9b6bdf; }
+    .stairs i:nth-child(4) { height: 4.8vw; background: #2fb36b; }
+    .apples { display: flex; gap: 0.35vw; justify-content: center; margin-top: 0.6vh; }
+    .apples img { width: min(3.6vw, 6vh); image-rendering: auto; animation: wob 2.4s ease-in-out infinite; }
+    .apples img:nth-child(odd) { animation-delay: -1.2s; }
+    .apples .sp { width: 1vw; }
+    @keyframes wob { 50% { transform: translateY(-0.6vh) rotate(-4deg); } }
+    .tags { display: flex; flex-direction: column; gap: 1.1vh; align-items: center; }
+    .tag { display: inline-block; padding: 0.7vh 1.2vw; font-size: clamp(14px, 1.55vw, 32px); color: var(--ink); background: #7fd3ff; }
+    .tag.gift { background: #ff4d6d; color: #fff; animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 50% { transform: scale(1.05); } }
+    .maker { display: flex; align-items: center; gap: 0.8vw; padding: 0.9vh 1.4vw; background: #fff8e6; color: var(--ink); }
+    .maker img { width: min(3.6vw, 6vh); }
+    .maker b { display: block; font-size: clamp(16px, 1.9vw, 38px); line-height: 1.1; }
+    .maker small { display: block; font-size: clamp(11px, 1vw, 20px); font-weight: 400; color: #3b5bab; }
+
+    /* 오른쪽 순위 */
+    .board { display: flex; flex-direction: column; min-height: 0; }
+    .head { display: flex; align-items: center; gap: 1vw; margin-bottom: 1.6vh; }
+    .head h2 { margin: 0; font-size: clamp(24px, 3.2vw, 64px); text-shadow: var(--px) var(--px) 0 var(--ink); }
+    .live { font-size: clamp(12px, 1.3vw, 26px); padding: 0.4vh 0.8vw; background: #e8402e; animation: blink 1.2s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: 0.4; } }
+    .stage { margin-left: auto; font-size: clamp(12px, 1.25vw, 26px); font-weight: 400; padding: 0.5vh 1vw; background: rgba(20,24,40,0.7); }
+    ol { list-style: none; margin: 0; padding: 0 var(--px); display: flex; flex-direction: column; gap: 1.25vh; flex: 1; min-height: 0; }
+    li { position: relative; display: grid; grid-template-columns: 5.6vw 1fr auto; align-items: center; gap: 1.2vw;
+      background: rgba(255,248,230,0.95); color: var(--ink); padding: 0 1.6vw; flex: 1; min-height: 0;
+      font-size: clamp(16px, 2.2vw, 44px); transition: transform 0.3s; isolation: isolate; }
+    li .rk { text-align: center; }
+    li .nm { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    li .sc { font-size: 1.08em; letter-spacing: 0.02em; }
+    li .sc small { font-size: 0.5em; margin-left: 0.3vw; font-weight: 400; }
+    li.top { flex: 1.55; font-size: clamp(20px, 3vw, 60px); }
+    li.r1 { background: linear-gradient(180deg, #ffe680, #ffc928); }
+    li.r2 { background: linear-gradient(180deg, #f4f7fc, #cdd6e6); }
+    li.r3 { background: linear-gradient(180deg, #ffd0a6, #e8975a); }
+    .medal { position: relative; width: 4.6vw; height: 4.6vw; justify-self: center; display: grid; place-items: center;
+      font-size: 0.78em; color: #fff; background: var(--ink); clip-path: polygon(20% 0, 80% 0, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0 80%, 0 20%); }
+    li.r1 .medal { background: #c78a00; } li.r2 .medal { background: #7a8299; } li.r3 .medal { background: #a5541a; }
+    li.r1::before { content: ''; position: absolute; left: 0.6vw; top: 50%; width: 7.6vw; height: 7.6vw; transform: translateY(-56%);
+      background: url('../assets/fx_fire1.webp') center / contain no-repeat; animation: fire 0.28s steps(1) infinite; z-index: -1; }
+    @keyframes fire { 50% { background-image: url('../assets/fx_fire2.webp'); } }
+    li.r1 .crown { font-size: 0.45em; margin-left: 0.6vw; padding: 0.2vh 0.6vw; background: var(--ink); color: #ffe066; vertical-align: 0.3em; }
+    li.empty { color: #4d5577; background: rgba(255,248,230,0.72); font-weight: 400; }
+    li.flash { animation: flash 0.5s steps(2) 6; }
+    @keyframes flash { 50% { background: #ff8a1e; color: #fff; transform: scale(1.025); } }
+
+    .foot { margin-top: 1.3vh; font-size: clamp(11px, 1vw, 20px); font-weight: 400; opacity: 0.9; display: flex; justify-content: space-between; gap: 1vw; }
+    .dot { display: inline-block; width: 0.8em; height: 0.8em; background: #2fb36b; margin-right: 0.4em; vertical-align: -0.05em; }
+    .dot.off { background: #e8402e; }
+    #fs { position: fixed; left: 1vw; top: 1vh; font: 700 16px 'Galmuri11', sans-serif; padding: 10px 16px; border: 0;
+      background: #ffcc33; color: var(--ink); cursor: pointer; z-index: 5; }
+    @media (max-aspect-ratio: 1/1) {
+      .wrap { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .side { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2vw; }
+      .tags, .apples { display: none; }
+      li { grid-template-columns: 10vw 1fr auto; font-size: 4vw; } li.top { font-size: 5vw; }
+      .medal { width: 8vw; height: 8vw; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg" id="bgA"></div>
+  <div class="bg" id="bgB" style="opacity:0"></div>
+  <div class="shade"></div>
+
+  <div class="wrap">
+    <section class="side">
+      <div class="logo">
+        <div class="sub">예산과 함께하는</div>
+        <h1>엔트리봇<br><span class="b">무한의 계단</span></h1>
+        <div class="apples" id="apples"></div>
+      </div>
+      <div class="hero">
+        <img class="bot" src="../assets/bot_happy.webp" alt="">
+      </div>
+      <div class="tags">
+        <span class="tag pix">우리 손으로 직접 만든 게임!</span>
+        <span class="tag gift pix">TOP 3 구글 기프트카드!</span>
+      </div>
+      <div class="maker pix">
+        <img src="../assets/bot_idle1.webp" alt="">
+        <div><b>myoLab · 산쌤</b><small>기획 · 개발 · 디자인</small></div>
+      </div>
+    </section>
+
+    <section class="board">
+      <div class="head">
+        <h2>실시간 순위 TOP 10</h2>
+        <span class="live pix">LIVE</span>
+        <span class="stage pix" id="stage"></span>
+      </div>
+      <ol id="list"></ol>
+      <div class="foot"><span id="status"><span class="dot"></span>연결 중...</span><span>3등 안에 들면 이름이 남아요 · 개인정보는 활동 후 폐기 · 제작 myoLab(산쌤)</span></div>
+    </section>
+  </div>
+  <button id="fs" class="pix" type="button">전체 화면</button>
+
+  <script type="module">
+    import { CONFIG as C } from '../src/config.js';
+    import { rpc } from '../src/net.js';
+
+    const $ = (id) => document.getElementById(id);
+    const list = $('list');
+    let prev = null; // nickname -> score (첫 불러오기 전에는 null)
+
+    // 사과 글자 "엔트리와 예산사랑"
+    $('apples').innerHTML = C.WORD.map((_, i) => (i === 4 ? '<span class="sp"></span>' : '') + `<img src="../assets/letter_${i + 1}.webp" alt="">`).join('');
+
+    // 배경: 예산 명소 9곳을 천천히 돌아가며
+    const bgs = [$('bgA'), $('bgB')];
+    let bi = 0, front = 0;
+    function showStage() {
+      const s = C.STAGES[bi % C.STAGES.length];
+      const next = bgs[1 - front];
+      next.style.backgroundImage = `url('../${s.img}')`;
+      next.style.opacity = 1; bgs[front].style.opacity = 0; front = 1 - front;
+      $('stage').textContent = `지금 배경: ${s.name}`;
+      bi++;
+    }
+    bgs[0].style.backgroundImage = `url('../${C.STAGES[0].img}')`;
+    showStage();
+    setInterval(showStage, 20000);
+
+    function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+    function render(rows) {
+      const html = [];
+      for (let i = 0; i < C.BOARD_SIZE; i++) {
+        const r = rows[i];
+        const top = i < 3 ? ` top r${i + 1}` : '';
+        const rk = i < 3 ? `<span class="medal">${i + 1}</span>` : `<span class="rk">${i + 1}</span>`;
+        if (!r) {
+          html.push(`<li class="pix empty${top}">${rk}<span class="nm">도전자를 기다려요!</span><span class="sc"></span></li>`);
+          continue;
+        }
+        const isNew = prev !== null && prev.get(r.nickname) !== r.score;
+        const crown = i === 0 ? '<span class="crown">1등을 이겨 봐!</span>' : '';
+        html.push(`<li class="pix${top}${isNew ? ' flash' : ''}">${rk}<span class="nm">${esc(r.nickname)}${crown}</span><span class="sc">${r.score}<small>계단</small></span></li>`);
+      }
+      list.innerHTML = html.join('');
+      prev = new Map(rows.map((r) => [r.nickname, r.score]));
+    }
+
+    async function refresh() {
+      try {
+        const rows = await rpc('stairs_board', { lim: C.BOARD_SIZE });
+        render(rows || []);
+        $('status').innerHTML = `<span class="dot"></span>업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
+      } catch (e) {
+        $('status').innerHTML = '<span class="dot off"></span>인터넷 연결을 확인하는 중...';
+      }
+    }
+    render([]); prev = null;
+    refresh();
+    setInterval(refresh, C.BOARD_REFRESH_SEC * 1000);
+
+    // 전체 화면 + 화면 꺼짐 방지
+    const fs = $('fs');
+    let lock = null;
+    async function keepAwake() { try { if ('wakeLock' in navigator && !lock) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; }); } } catch (e) {} }
+    fs.addEventListener('click', async () => { try { await document.documentElement.requestFullscreen(); } catch (e) {} keepAwake(); });
+    document.addEventListener('fullscreenchange', () => { fs.style.display = document.fullscreenElement ? 'none' : ''; });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) keepAwake(); });
+  </script>
+</body>
+</html>

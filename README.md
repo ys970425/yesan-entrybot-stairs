@@ -11,6 +11,14 @@
 - 태블릿에서 한 번 연 뒤 "홈 화면에 추가"하면 인터넷 없이도 실행됩니다.
 - 최고기록 초기화: 처음 화면 왼쪽 위 "기록 초기화" 버튼 (또는 "제작: myoLab(산쌤)"을 3초 길게 누르기)
 
+## 순위표
+
+- TV 순위표: https://ys970425.github.io/yesan-entrybot-stairs/board/ (노트북을 TV에 연결 → 열기 → "전체 화면")
+- 관리자: https://ys970425.github.io/yesan-entrybot-stairs/admin/ (Supabase에 설정한 관리자 비밀번호)
+- 서버 설정: `supabase/setup.sql` 을 Supabase SQL Editor에서 실행 (비밀번호 바꿀 때도 다시 실행)
+- 게임 시작 때 닉네임 입력 → 게임이 끝나면 기록 자동 전송 (인터넷이 끊기면 모아 두었다가 다시 보냄)
+- 1~3등만 학교·학년·이름 입력, 3등 밖으로 밀려나면 자동 삭제. 행사 후 관리자 화면에서 전체 삭제
+
 ## 고치는 곳
 
 - 난이도, 부스터, 배경 순서와 이름: `src/config.js`

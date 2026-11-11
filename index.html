@@ -31,10 +31,48 @@
       touch-action: none;
       image-rendering: pixelated;
     }
+    #nickbox {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(10,16,40,0.72); z-index: 10; font-family: 'Galmuri11', sans-serif;
+      -webkit-user-select: text; user-select: text;
+    }
+    #nickbox .panel {
+      width: min(90vw, 560px); background: #fff8e6; border: 6px solid #1b2246; border-radius: 22px;
+      padding: 28px 26px 24px; box-sizing: border-box; text-align: center; color: #1b2246;
+    }
+    #nickbox h2 { margin: 0 0 6px; font-size: 34px; font-weight: 700; }
+    #nickbox p.sub { margin: 0 0 18px; font-size: 18px; color: #3b5bab; }
+    #nickbox input {
+      width: 100%; box-sizing: border-box; font: 700 36px 'Galmuri11', sans-serif; text-align: center;
+      padding: 14px 10px; border: 5px solid #1b2246; border-radius: 14px; background: #fff; color: #1b2246;
+      outline: none;
+    }
+    #nickbox input:focus { border-color: #ff8a1e; }
+    #nickbox .err { min-height: 26px; margin: 10px 0 6px; font-size: 20px; color: #e8402e; }
+    #nickbox .row { display: flex; gap: 14px; }
+    #nickbox button {
+      flex: 1; font: 700 30px 'Galmuri11', sans-serif; padding: 16px 0; border: 5px solid #1b2246;
+      border-radius: 16px; background: #ffcc33; color: #1b2246; cursor: pointer;
+    }
+    #nickbox button.ghost { background: #e6e9f0; flex: 0.6; }
+    #nickbox .note { margin-top: 14px; font-size: 15px; color: #6b7290; }
   </style>
 </head>
 <body>
   <canvas id="game"></canvas>
+  <div id="nickbox">
+    <form class="panel" id="nickform" autocomplete="off">
+      <h2>닉네임을 입력하세요</h2>
+      <p class="sub">TV 순위표에 이 이름으로 올라가요 (8글자까지)</p>
+      <input id="nickinput" type="text" maxlength="8" enterkeyhint="go" spellcheck="false" placeholder="예: 계단왕">
+      <div class="err" id="nickerr"></div>
+      <div class="row">
+        <button type="button" class="ghost" id="nickcancel">취소</button>
+        <button type="submit" id="nickok">시작!</button>
+      </div>
+      <div class="note">진짜 이름 말고 닉네임을 써 주세요</div>
+    </form>
+  </div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

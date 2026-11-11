@@ -1,6 +1,7 @@
 // 예산과 함께하는 엔트리봇 무한의 계단 — 제작: myoLab(산쌤)
 import { CONFIG as C } from './config.js';
 import { sfx, unlockAudio, isMuted, setMuted } from './audio.js';
+import { submitScore, flushQueue, cleanNickname, checkNickname } from './net.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
@@ -140,6 +141,8 @@ let lastStepAt = -10, stepCount = 0;
 let rx = 0, ry = 0, camX = 0, camY = 0; // 보이는 위치 (부드럽게 따라감)
 let fallT = 0, fallDir = 0, fallX = 0, fallY = 0;
 let overAt = 0, newRecord = false;
+let nickname = '';
+let submitState = null, submitRank = null; // 'sending' | 'ok' | 'queued' | 'rejected'
 let stageIdx = 0, prevStageIdx = 0, stageFade = 1, bannerAt = -10;
 let shake = 0;
 let trail = [];
@@ -289,7 +292,21 @@ function fail(dir) {
   boostActive = false;
   if (score > best) { best = score; newRecord = true; saveBest(); }
   sfx.fall();
+  sendScore();
 }
+
+function sendScore() {
+  submitState = null; submitRank = null;
+  if (!nickname || score < 1) return;
+  submitState = 'sending';
+  const runId = ++sendRun;
+  submitScore(nickname, score).then((r) => {
+    if (runId !== sendRun) return;
+    if (r.ok) { submitState = 'ok'; submitRank = r.rank; }
+    else submitState = r.queued ? 'queued' : 'rejected';
+  });
+}
+let sendRun = 0;
 
 // ------------------------------------------------------------
 // 업데이트
@@ -786,7 +803,7 @@ function drawOver() {
   text('게임 오버', cx, py + 80, 72, '#ff6b3d', { ow: 12 });
   const im = IMG.bot[newRecord ? 'happy' : 'fall2'];
   if (im) { ctx.imageSmoothingEnabled = true; ctx.drawImage(im, cx - 110, py + 130, 220, 220); }
-  text('이번 기록', cx, py + 400, 34, '#1b2246', { outline: null });
+  text(nickname ? `${nickname} 의 기록` : '이번 기록', cx, py + 400, 34, '#1b2246', { outline: null });
   text(`${score}계단`, cx, py + 470, 88, '#1b2246', { outline: '#ffe066', ow: 12 });
   text(`최고 기록  ${best}계단`, cx, py + 560, 36, '#3b5bab', { outline: null });
   if (newRecord) {
@@ -796,6 +813,16 @@ function drawOver() {
     text('NEW RECORD!', 0, 2, 46, '#ffffff', { outline: null });
     ctx.restore();
   }
+  // 순위표 전송 결과
+  let msg = '', mcol = '#3b5bab';
+  if (submitState === 'sending') msg = '순위표에 기록 보내는 중...';
+  else if (submitState === 'ok' && submitRank) {
+    msg = submitRank <= C.BOARD_SIZE ? `TV 순위표 ${submitRank}등! 축하해요!` : `전체 ${submitRank}등! TV 순위표는 ${C.BOARD_SIZE}등까지예요`;
+    mcol = submitRank <= 3 ? '#e8402e' : '#2f8a4a';
+  } else if (submitState === 'ok') msg = '기록 저장 완료 (내 최고 기록은 그대로)';
+  else if (submitState === 'queued') { msg = '인터넷 연결 후 자동으로 순위표에 올라가요'; mcol = '#8a6a00'; }
+  else if (submitState === 'rejected') { msg = '기록을 보내지 못했어요'; mcol = '#8a6a00'; }
+  if (msg) text(msg, cx, py + 720, 30, mcol, { outline: null });
   ctx.globalAlpha = 1;
   // 연타로 바로 다시 시작되지 않도록 잠깐 뒤에 버튼 표시
   if (t > 0.7) {
@@ -825,7 +852,7 @@ function draw() {
   buttons = [];
   ctx.setTransform(k, 0, 0, k, 0, 0);
   if (state === 'loading' || !ready) { drawLoading(); return; }
-  if (state === 'title') { drawTitle(); return; }
+  if (state === 'title' || state === 'nick') { drawTitle(); return; }
   if (state === 'layout') { drawLayout(); return; }
   drawGame();
   if (state === 'paused') drawPause();
@@ -850,7 +877,7 @@ function hit(p) {
 
 function onButton(id) {
   switch (id) {
-    case 'start': sfx.click(); resetGame(); requestWakeLock(); break;
+    case 'start': sfx.click(); openNick(''); break;
     case 'mute': setMuted(!isMuted()); sfx.click(); break;
     case 'resetBest':
       sfx.click();
@@ -860,7 +887,7 @@ function onButton(id) {
       break;
     case 'pause': if ((state === 'play' || state === 'ready') && !boostActive) { pausedFrom = state; state = 'paused'; } break;
     case 'resume': sfx.click(); state = pausedFrom; break;
-    case 'retry': sfx.click(); resetGame(); break;
+    case 'retry': sfx.click(); openNick(nickname); break;
     case 'home': sfx.click(); state = 'title'; break;
     case 'layout': sfx.click(); state = 'layout'; break;
     case 'layoutDone': sfx.click(); saveLayout(); state = 'title'; break;
@@ -955,6 +982,7 @@ const KEY_CLIMB = ['ArrowRight', 'd', 'D', 'j', 'J'];
 const KEY_BOOST = [' ', 'ArrowUp', 'Enter', 'w', 'W'];
 
 window.addEventListener('keydown', (e) => {
+  if (state === 'nick') { if (e.key === 'Escape') closeNick(); return; } // 닉네임 입력 중에는 입력칸이 처리
   if (e.repeat) return;
   unlockAudio();
   if (!ready) return;
@@ -975,7 +1003,10 @@ window.addEventListener('keydown', (e) => {
 
 // 확대·스크롤·길게 누르기 메뉴 막기
 ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'gesturechange', 'dblclick', 'contextmenu'].forEach((ev) => {
-  document.addEventListener(ev, (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+  document.addEventListener(ev, (e) => {
+    if (e.target && e.target.closest && e.target.closest('#nickbox')) return; // 닉네임 입력창은 정상 동작
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
 });
 
 // 다른 앱으로 나가면 일시정지
@@ -999,6 +1030,49 @@ async function requestWakeLock() {
 }
 
 // ------------------------------------------------------------
+// 닉네임 입력창 (HTML 입력칸 — 한글 입력 가능)
+// ------------------------------------------------------------
+const nickBox = document.getElementById('nickbox');
+const nickForm = document.getElementById('nickform');
+const nickInput = document.getElementById('nickinput');
+const nickErr = document.getElementById('nickerr');
+
+function openNick(prefill) {
+  state = 'nick';
+  nickInput.value = prefill || '';
+  nickErr.textContent = '';
+  nickBox.style.display = 'flex';
+  try { nickInput.focus(); } catch (e) {}
+}
+
+function closeNick() {
+  nickBox.style.display = 'none';
+  try { nickInput.blur(); } catch (e) {}
+  if (state === 'nick') state = 'title';
+}
+
+nickForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const nick = cleanNickname(nickInput.value);
+  const err = checkNickname(nick);
+  if (err) { nickErr.textContent = err; nickInput.focus(); return; }
+  nickname = nick;
+  nickBox.style.display = 'none';
+  try { nickInput.blur(); } catch (e2) {}
+  unlockAudio();
+  sfx.click();
+  resetGame();
+  requestWakeLock();
+});
+document.getElementById('nickcancel').addEventListener('click', () => { sfx.click(); closeNick(); });
+nickInput.addEventListener('input', () => { nickErr.textContent = ''; });
+
+// 못 보낸 기록이 있으면 인터넷이 될 때 다시 보냄
+flushQueue();
+setInterval(flushQueue, 30000);
+window.addEventListener('online', flushQueue);
+
+// ------------------------------------------------------------
 // 메인 루프
 // ------------------------------------------------------------
 let last = performance.now();
@@ -1011,7 +1085,7 @@ function frame(now) {
       creditHold = null;
       if (window.confirm('최고기록을 0으로 초기화할까요?')) { best = 0; saveBest(); }
     }
-    if (state !== 'paused' && state !== 'title' && state !== 'layout') update(dt);
+    if (state !== 'paused' && state !== 'title' && state !== 'layout' && state !== 'nick') update(dt);
   }
   draw();
   requestAnimationFrame(frame);
@@ -1039,5 +1113,7 @@ window.__game = {
   nextDir() { return stairs[n + 1].x - stairs[n].x; },
   act: doAction,
   get letters() { return gotCount; },
+  get submit() { return { state: submitState, rank: submitRank }; },
+  get nick() { return nickname; },
   get collected() { return collected.slice(); },
 };
