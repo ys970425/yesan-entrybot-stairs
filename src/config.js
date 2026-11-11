@@ -68,10 +68,10 @@ export const CONFIG = {
 
   // 코딩블록 계단 색 (윗면, 옆면)
   BLOCK_COLORS: [
-    { top: '#c4822b', side: '#7f5216', icon: 'play' },   // 시작하기
-    { top: '#3d6ea8', side: '#244672', icon: 'arrow' },  // 움직이기
-    { top: '#6f58a0', side: '#45366b', icon: 'talk' },   // 말하기
-    { top: '#3d8a5e', side: '#245a3b', icon: 'loop' },   // 반복하기
+    { top: '#f5a623', side: '#c27c0e', icon: 'play' },   // 시작하기
+    { top: '#3b8beb', side: '#2361b0', icon: 'arrow' },  // 움직이기
+    { top: '#9b6bdf', side: '#6d44ab', icon: 'talk' },   // 말하기
+    { top: '#2fb36b', side: '#1d7e4a', icon: 'loop' },   // 반복하기
   ],
 
   APP_NAME: '예산과 함께하는 엔트리봇 무한의 계단',

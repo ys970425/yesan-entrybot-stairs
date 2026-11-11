@@ -152,7 +152,7 @@ function saveBest() { try { localStorage.setItem(C.BEST_KEY, String(best)); } ca
 function genStairs(upto) {
   while (stairs.length <= upto) {
     const i = stairs.length;
-    if (i === 0) { stairs.push({ x: 0, c: 0 }); lastDir = 1; runLen = 0; continue; }
+    if (i === 0) { stairs.push({ x: 0, c: 0, letter: -1 }); lastDir = 1; runLen = 0; continue; }
     let dir = lastDir;
     if (i > C.START_STRAIGHT && i > straightUntil) {
       if (runLen >= C.MAX_RUN || Math.random() < C.TURN_CHANCE) dir = -dir;
@@ -424,7 +424,7 @@ function drawStairs() {
   const ls = C.LETTER_SIZE;
   for (let i = to; i >= from; i--) {
     const st = stairs[i];
-    if (st.letter < 0) continue;
+    if (!(st.letter >= 0)) continue; // 글자가 없는 계단
     const cx = sx(st.x);
     if (cx < -ls || cx > VW + ls) continue;
     const bob = Math.sin(now * 4 + i) * 6;
