@@ -74,7 +74,7 @@
   <main id="app">
     <section class="card">
       <h2>순위 (닉네임별 최고 기록)</h2>
-      <p class="help">상 받는 6명만 학교·학년·이름을 적을 수 있어요: 1위 = 1등(3만원), 2~3위 = 2등(2만원), 4~6위 = 3등(1만원). 6위 밖으로 밀려나면 적은 정보는 자동으로 지워져요. TV에는 닉네임·계단 수·엔트리봇 색만 나와요.</p>
+      <p class="help">명예의 전당 6명만 학교·학년·이름을 적을 수 있어요: 1위 = 1등, 2~3위 = 2등, 4~6위 = 3등. 6위 밖으로 밀려나면 적은 정보는 자동으로 지워져요. TV에는 닉네임·계단 수·엔트리봇 색만 나와요.</p>
       <table>
         <thead><tr><th>순위</th><th>상</th><th>닉네임</th><th>계단</th><th>시간</th><th>학교 · 학년 · 이름 (1~6위)</th><th></th></tr></thead>
         <tbody id="rows"></tbody>
@@ -147,7 +147,7 @@
         const ci = colorInfo(r.color);
         return `<tr class="${tier}">
           <td class="rk">${r.rank}</td>
-          <td>${pz ? `<span class="prize ${tier}">${pz.label} ${pz.gift}</span>` : '<span class="muted">-</span>'}</td>
+          <td>${pz ? `<span class="prize ${tier}">${pz.label}</span>` : '<span class="muted">-</span>'}</td>
           <td class="nm"><span class="cdot" style="background:${ci.swatch}" title="${ci.name}"></span>${esc(r.nickname)}${top && r.name ? '<span class="tag">입력됨</span>' : ''}</td>
           <td class="sc">${r.score}</td>
           <td class="tm">${time(r.created_at)}</td>

@@ -229,7 +229,7 @@
     }
 
     function drawSidePanels(t) {
-      // 왼쪽: 게임 이름 + 상품 안내
+      // 왼쪽: 게임 이름 + 명예의 전당 안내
       const lx = 40, ly = 250;
       box(lx, ly, 290, 470, 'rgba(255,248,230,0.94)');
       txt('엔트리봇', lx + 145, ly + 46, 40, '#1b2246');
@@ -238,8 +238,8 @@
         const im = IMG['apple' + (i + 1)];
         if (im) ctx.drawImage(im, lx + 18 + i * 32 + (i >= 4 ? 6 : 0), ly + 124 + Math.sin(t * 3 + i) * 3, 30, 30);
       }
-      txt('상품 안내', lx + 145, ly + 196, 24, '#e8402e');
-      const prize = [['1등', '1명', '3만원', '#c78a00'], ['2등', '2명', '2만원', '#7a8299'], ['3등', '3명', '1만원', '#a5541a']];
+      txt('명예의 전당', lx + 145, ly + 196, 28, '#e8402e');
+      const prize = [['1등', '1명', '1위', '#c78a00'], ['2등', '2명', '2~3위', '#7a8299'], ['3등', '3명', '4~6위', '#a5541a']];
       prize.forEach(([a, b, c, col], i) => {
         const y = ly + 238 + i * 64;
         box(lx + 18, y, 254, 52, '#ffffff', col, 4);
@@ -247,7 +247,7 @@
         txt(b, lx + 128, y + 27, 22, '#1b2246', { bold: false });
         txt(c, lx + 212, y + 27, 26, '#1b2246');
       });
-      txt('총 10만원!', lx + 145, ly + 442, 26, '#e8402e');
+      txt('시상대에 도전하세요!', lx + 145, ly + 442, 24, '#e8402e');
 
       // 오른쪽: 1~10위 한눈에
       const rx = W - 330, ry = 250;
@@ -270,7 +270,7 @@
 
     function drawPodium() {
       if (IMG.podium) ctx.drawImage(IMG.podium, POD_X, POD_Y, POD_W, POD_H);
-      const lab = [[PX(193), '2등 2만원 x2', '#7a8299'], [PX(480), '1등 3만원', '#c78a00'], [PX(800), '3등 1만원 x3', '#a5541a']];
+      const lab = [[PX(193), '2등 · 2명', '#7a8299'], [PX(480), '1등 · 1명', '#c78a00'], [PX(800), '3등 · 3명', '#a5541a']];
       for (const [x, s, col] of lab) {
         ctx.font = `700 22px ${FONT}`;
         const w = ctx.measureText(s).width + 26;

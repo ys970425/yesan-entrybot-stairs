@@ -88,11 +88,11 @@ export const CONFIG = {
   NICK_MAX: 8,
   BOARD_SIZE: 10,         // TV 순위표에 보여 줄 등수
   COLOR_KEY: 'yesanEntrybotStairs.color',
-  // 상: 1등 1명(1위), 2등 2명(2~3위), 3등 3명(4~6위)
+  // 명예의 전당: 1등 1명(1위), 2등 2명(2~3위), 3등 3명(4~6위)
   PRIZES: [
-    { label: '1등', from: 1, to: 1, gift: '3만원' },
-    { label: '2등', from: 2, to: 3, gift: '2만원' },
-    { label: '3등', from: 4, to: 6, gift: '1만원' },
+    { label: '1등', from: 1, to: 1 },
+    { label: '2등', from: 2, to: 3 },
+    { label: '3등', from: 4, to: 6 },
   ],
   BOARD_REFRESH_SEC: 5,   // TV 순위표 새로고침 간격
 };
