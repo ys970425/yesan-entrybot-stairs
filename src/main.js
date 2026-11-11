@@ -13,7 +13,6 @@ const clock = () => performance.now() / 1000;
 let dpr = 1, k = 1, VW = 720, VH = 1280, GW = 720, GX = 0;
 let topShade = null;
 const blockCache = [];
-let coinCache = null;
 
 function resize() {
   const cssW = window.innerWidth;
@@ -40,7 +39,7 @@ function resize() {
 // ------------------------------------------------------------
 // 에셋 불러오기 (게임 시작 전에 전부)
 // ------------------------------------------------------------
-const IMG = { bg: [], bot: {}, fire: [] };
+const IMG = { bg: [], bot: {}, fire: [], letters: [], lettersDim: [] };
 const BOT_FRAMES = ['idle1', 'idle2', 'climb1', 'climb2', 'fall1', 'fall2', 'boost1', 'boost2', 'happy'];
 let loaded = 0, total = 0, ready = false;
 
@@ -62,6 +61,10 @@ async function loadAll() {
   C.STAGES.forEach((s, i) => jobs.push(loadImage(s.img).then((im) => { IMG.bg[i] = im; })));
   BOT_FRAMES.forEach((f) => jobs.push(loadImage(`assets/bot_${f}.webp`).then((im) => { IMG.bot[f] = im; })));
   [1, 2, 3, 4].forEach((n, i) => jobs.push(loadImage(`assets/fx_fire${n}.webp`).then((im) => { IMG.fire[i] = im; })));
+  if (C.USE_LETTER_IMAGES) C.WORD.forEach((_, i) => {
+    jobs.push(loadImage(`assets/letter_${i + 1}.webp`).then((im) => { IMG.letters[i] = im; }));
+    jobs.push(loadImage(`assets/letter_${i + 1}_dim.webp`).then((im) => { IMG.lettersDim[i] = im; }));
+  });
   const fontJob = (document.fonts && document.fonts.load)
     ? Promise.all([document.fonts.load(`700 40px Galmuri11`), document.fonts.load(`400 40px Galmuri11`)]).catch(() => {})
     : Promise.resolve();
@@ -120,34 +123,6 @@ function buildBlocks() {
     bg.drawImage(s, 0, 0, big.width, big.height);
     blockCache.push(big);
   }
-  buildCoin();
-}
-
-// 도트 코인 (14x14 픽셀을 확대)
-function buildCoin() {
-  const s = document.createElement('canvas');
-  s.width = 14; s.height = 14;
-  const g = s.getContext('2d');
-  for (let y = 0; y < 14; y++) {
-    for (let x = 0; x < 14; x++) {
-      const d = Math.hypot(x + 0.5 - 7, y + 0.5 - 7);
-      let col = null;
-      if (d <= 6.9) col = '#7a4a00';
-      if (d <= 5.9) col = '#ffc928';
-      if (d <= 4.2) col = '#f2a900';
-      if (d <= 3.2) col = '#ffd84d';
-      if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
-    }
-  }
-  g.fillStyle = '#b97800'; g.fillRect(6, 4, 2, 6);          // 가운데 무늬
-  g.fillStyle = '#fff6c2'; g.fillRect(3, 4, 1, 3); g.fillRect(4, 3, 2, 1); // 반짝임
-  const big = document.createElement('canvas');
-  big.width = Math.max(1, Math.round(C.COIN_SIZE * k));
-  big.height = big.width;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(s, 0, 0, big.width, big.height);
-  coinCache = big;
 }
 
 // ------------------------------------------------------------
@@ -157,7 +132,7 @@ let state = 'loading'; // loading | title | ready | play | paused | falling | ov
 let pausedFrom = 'play';
 let stairs = [];
 let lastDir = 1, runLen = 0, straightUntil = 0;
-let coins = 0, coinFx = [];
+let collected = [], gotCount = 0, roundStart = 0, nextLetterAt = 0, letterFx = []; // 모은 글자, 이번 판 시작 계단, 다음 글자가 놓일 계단
 let n = 0, facing = 1, score = 0;
 let gauge = C.GAUGE_MAX;
 let boostGauge = 0, boostActive = false, boostTime = 0, boostAcc = 0, boostStartAt = -10;
@@ -185,13 +160,36 @@ function genStairs(upto) {
     if (dir === lastDir) runLen++; else runLen = 1;
     lastDir = dir;
     const prev = stairs[i - 1];
-    const coin = i >= C.COIN_FROM && i > straightUntil && Math.random() < C.COIN_CHANCE;
-    stairs.push({ x: prev.x + dir, c: (Math.random() * C.BLOCK_COLORS.length) | 0, coin });
+    let letter = -1;
+    if (i > straightUntil && i >= nextLetterAt) {
+      nextLetterAt = i + randInt(C.LETTER_GAP_MIN, C.LETTER_GAP_MAX);
+      letter = pickLetter(i);
+    }
+    stairs.push({ x: prev.x + dir, c: (Math.random() * C.BLOCK_COLORS.length) | 0, letter });
   }
 }
 
+function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+
+// 다음에 놓을 글자: 기본은 8글자 중 무작위(중복 가능).
+// 목표 계단 수보다 늦어지면 아직 못 모은 글자가 나올 확률을 높여 대부분 100~150계단 안에 다 모이게 한다.
+function pickLetter(i) {
+  const missing = [];
+  for (let k = 0; k < C.WORD.length; k++) if (!collected[k]) missing.push(k);
+  const q = Math.min(1, Math.max(0, C.LETTER_HELP + (i - roundStart) / C.LETTER_TARGET - gotCount / C.WORD.length));
+  if (missing.length && Math.random() < q) return missing[randInt(0, missing.length - 1)];
+  return randInt(0, C.WORD.length - 1);
+}
+
+function newLetterRound(from) {
+  collected = C.WORD.map(() => false);
+  gotCount = 0;
+  roundStart = from;
+  nextLetterAt = from + randInt(C.LETTER_GAP_MIN, C.LETTER_GAP_MAX);
+}
+
 function resetGame() {
-  stairs = []; straightUntil = 0; genStairs(40);
+  stairs = []; straightUntil = 0; newLetterRound(C.LETTER_FROM - C.LETTER_GAP_MIN); genStairs(40);
   n = 0; score = 0; facing = 1;
   gauge = C.GAUGE_MAX;
   boostGauge = 0; boostActive = false; boostTime = 0; boostAcc = 0; boostStartAt = -10;
@@ -199,7 +197,7 @@ function resetGame() {
   rx = 0; ry = 0; camX = 0; camY = 0;
   fallT = 0; newRecord = false;
   stageIdx = 0; prevStageIdx = 0; stageFade = 1; bannerAt = clock();
-  shake = 0; trail = []; coins = 0; coinFx = [];
+  shake = 0; trail = []; letterFx = [];
   state = 'ready';
 }
 
@@ -232,13 +230,22 @@ function step(auto) {
   stepCount++;
   gauge = Math.min(C.GAUGE_MAX, gauge + C.GAUGE_PER_STEP);
   const st = stairs[n];
-  if (st.coin) {
-    st.coin = false;
-    coins++;
-    if (!boostActive) boostGauge = Math.min(100, boostGauge + C.COIN_BOOST);
-    coinFx.push({ x: st.x, y: n, t: now });
-    if (coinFx.length > 8) coinFx.shift();
-    sfx.coin();
+  let gotAll = false;
+  if (st.letter >= 0) {
+    const li = st.letter;
+    st.letter = -1;
+    if (!collected[li] && !boostActive) {
+      // 새 글자: 위쪽 칸이 밝아짐
+      collected[li] = true;
+      gotCount++;
+      boostGauge = 100 * gotCount / C.WORD.length;
+      letterFx.push({ i: li, x: st.x, y: n, t: now });
+      if (letterFx.length > 6) letterFx.shift();
+      sfx.coin();
+      gotAll = gotCount >= C.WORD.length;
+    } else {
+      sfx.step(); // 이미 모은 글자: 아무 일도 없음
+    }
   } else {
     sfx.step();
   }
@@ -248,13 +255,7 @@ function step(auto) {
     prevStageIdx = stageIdx; stageIdx = si; stageFade = 0; bannerAt = now;
     sfx.stage();
   }
-}
-
-function tryBoost() {
-  if (state === 'ready') state = 'play';
-  if (state !== 'play' || boostActive || boostGauge < 100) return false;
-  startBoost();
-  return true;
+  if (gotAll) startBoost(); // 8글자를 다 모으면 부스터 자동 시작
 }
 
 function startBoost() {
@@ -269,6 +270,7 @@ function startBoost() {
 
 function endBoost() {
   boostActive = false; boostGauge = 0; gauge = C.GAUGE_MAX;
+  newLetterRound(n + C.AFTER_BOOST_STRAIGHT); // 글자를 처음부터 다시 모은다
   // 남은 일직선 계단을 지우고, 잠깐 같은 방향으로 이어진 뒤 다시 무작위로
   rebuildAhead(C.AFTER_BOOST_STRAIGHT);
 }
@@ -417,29 +419,48 @@ function drawStairs() {
     if (x > VW || x + C.BLOCK_W < 0) continue;
     ctx.drawImage(blockCache[st.c], x, y, C.BLOCK_W, C.BLOCK_H);
   }
-  // 코인 (계단 위에 둥실)
-  if (!coinCache) return;
+  // 글자 아이템 (계단 위에 둥실)
   const now = clock();
-  const cs = C.COIN_SIZE;
+  const ls = C.LETTER_SIZE;
   for (let i = to; i >= from; i--) {
     const st = stairs[i];
-    if (!st.coin) continue;
+    if (st.letter < 0) continue;
     const cx = sx(st.x);
-    if (cx < -cs || cx > VW + cs) continue;
-    const bob = Math.sin(now * 5 + i) * 5;
-    const w = cs * (0.35 + 0.65 * Math.abs(Math.cos(now * 3 + i * 0.7)));
-    ctx.drawImage(coinCache, cx - w / 2, sy(i) - cs - 18 + bob, w, cs);
+    if (cx < -ls || cx > VW + ls) continue;
+    const bob = Math.sin(now * 4 + i) * 6;
+    drawLetter(st.letter, cx, sy(i) - ls / 2 - 16 + bob, ls, true);
   }
 }
 
-function drawCoinFx() {
+// 글자 배지: 모은 글자(lit)는 밝게, 아직 못 모은 글자는 어둡게
+function drawLetter(i, cx, cy, size, lit) {
+  const im = lit ? IMG.letters[i] : IMG.lettersDim[i];
+  if (im) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(im, cx - size / 2, cy - size / 2, size, size);
+    return;
+  }
+  const s = size * 0.86;
+  const x = cx - s / 2, y = cy - s / 2;
+  if (lit) {
+    panelBox(x, y, s, s, '#ffc928', '#1b2246', s * 0.2, Math.max(3, s * 0.07));
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillRect(x + s * 0.18, y + s * 0.12, s * 0.64, Math.max(2, s * 0.06));
+    text(C.WORD[i], cx, cy + s * 0.05, s * 0.6, '#ffffff', { outline: '#1b2246', ow: Math.max(3, s * 0.13) });
+  } else {
+    panelBox(x, y, s, s, 'rgba(30,34,56,0.85)', 'rgba(10,14,30,0.9)', s * 0.2, Math.max(3, s * 0.07));
+    text(C.WORD[i], cx, cy + s * 0.05, s * 0.6, '#5d6584', { outline: null });
+  }
+}
+
+function drawLetterFx() {
   const now = clock();
-  for (const f of coinFx) {
+  for (const f of letterFx) {
     const t = now - f.t;
-    if (t > 0.6) continue;
-    const x = sx(f.x), y = sy(f.y) - C.PLAYER_SIZE - 10 - t * 120;
-    ctx.globalAlpha = 1 - t / 0.6;
-    text('+1', x + 50, y, 40, '#ffe066', { outline: '#7a4a00', ow: 8 });
+    if (t > 0.7) continue;
+    const x = sx(f.x), y = sy(f.y) - C.PLAYER_SIZE - 20 - t * 140;
+    ctx.globalAlpha = 1 - t / 0.7;
+    drawLetter(f.i, x + 60, y, 72 * (1 + Math.max(0, 0.15 - t)), true);
     ctx.globalAlpha = 1;
   }
 }
@@ -550,14 +571,15 @@ function drawHud() {
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   if (ratio > 0) ctx.fillRect(gx + 9, gy + 8, Math.max(0, (gw - 18) * ratio), 5);
 
-  // 부스터 게이지
-  const by = gy + gh + 8, bh = 18;
-  panelBox(gx, by, gw, bh, '#2a2440', '#1b2246', 8, 4);
-  const br = boostGauge / 100;
-  const nearFull = !boostActive && br > 0.85 && Math.floor(now * 10) % 2 === 0;
-  ctx.fillStyle = nearFull ? '#fff2a8' : '#ff9a1f';
-  if (br > 0) ctx.fillRect(gx + 4, by + 4, (gw - 8) * br, bh - 8);
-  text('BOOST', gx + gw - 8, by + bh / 2 + 1, 14, '#fff', { align: 'right', outline: '#1b2246', ow: 4 });
+  // 모은 글자 ("엔트리와 예산사랑") — 모은 글자는 밝게, 아닌 글자는 어둡게
+  const tile = 56, tgap = 5;
+  const by = gy + gh + 8, bh = tile;
+  const pulse = boostActive && Math.floor(now * 6) % 2 === 0 ? 1.06 : 1;
+  for (let i = 0; i < C.WORD.length; i++) {
+    const tx = gx + i * (tile + tgap) + (i >= 4 ? 14 : 0); // "엔트리와" 뒤 띄어쓰기
+    const lit = boostActive || collected[i];
+    drawLetter(i, tx + tile / 2, by + tile / 2, (tile / 0.86) * pulse, lit);
+  }
 
   // 장소 표시 (오른쪽 위)
   const name = C.STAGES[stageIdx].name;
@@ -568,11 +590,6 @@ function drawHud() {
   ctx.fillStyle = 'rgba(20,24,40,0.72)'; ctx.fill();
   ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.stroke();
   text(name, lx + lw / 2, ly + lh / 2 + 1, 26, '#fff', { outline: null, bold: false });
-
-  // 코인 수 (왼쪽)
-  const cy0 = ly + lh / 2;
-  if (coinCache) ctx.drawImage(coinCache, GX + 26, cy0 - 20, 40, 40);
-  text(String(coins), GX + 76, cy0 + 2, 34, '#ffe066', { align: 'left', outline: '#1b2246', ow: 7 });
 
   // 점수
   text(String(score), GX + GW / 2, 236, 100, '#ffffff', { outline: '#1b2246', ow: 14 });
@@ -614,34 +631,6 @@ function drawControls() {
     text(d.label, cx, y + oy + size - 30, 24, '#fff', { outline: '#1b2246', ow: 6 });
   }
 
-  // 부스터 버튼 (가운데)
-  const gap = GW - 80 - size * 2;
-  const bw = Math.min(230, gap - 30), bh = size * 0.82;
-  const bx = GX + GW / 2 - bw / 2, by = VH - 60 - bh;
-  const readyB = boostGauge >= 100 && !boostActive && (state === 'play' || state === 'ready');
-  if (readyB) buttons.push({ id: 'boost', x: bx - 10, y: by - 20, w: bw + 20, h: bh + 40 });
-  const pressedB = now - pressAt.boost < 0.1;
-  const oyB = pressedB ? 8 : 0;
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  rrect(bx, by + 10, bw, bh, 26); ctx.fill();
-  if (boostActive) {
-    panelBox(bx, by + oyB, bw, bh, '#ffd23b', '#1b2246', 26, 7);
-    text('부스터 중', bx + bw / 2, by + oyB + bh / 2, 34, '#c4320a', { outline: null });
-  } else if (readyB) {
-    const pulse = 0.5 + 0.5 * Math.sin(now * 10);
-    ctx.save();
-    ctx.shadowColor = '#ff6a00'; ctx.shadowBlur = 20 + 20 * pulse;
-    panelBox(bx, by + oyB, bw, bh, pulse > 0.5 ? '#ff4d1f' : '#ff7a1f', '#1b2246', 26, 7);
-    ctx.restore();
-    text('부스터!', bx + bw / 2, by + oyB + bh / 2 - 12, 44 + 4 * pulse, '#ffffff', { outline: '#7a1a00', ow: 9 });
-    text('누르세요', bx + bw / 2, by + oyB + bh / 2 + 32, 24, '#fff6c2', { outline: '#7a1a00', ow: 6 });
-  } else {
-    panelBox(bx, by, bw, bh, '#5b5f73', '#1b2246', 26, 7);
-    const fillW = (bw - 18) * (boostGauge / 100);
-    if (fillW > 0) { ctx.fillStyle = '#ff9a1f'; rrect(bx + 9, by + 9, fillW, bh - 18, 18); ctx.fill(); }
-    text('부스터', bx + bw / 2, by + bh / 2 - 12, 36, '#ffffff', { outline: '#1b2246', ow: 7 });
-    text(`코인 ${Math.round(boostGauge / C.COIN_BOOST)}/${Math.round(100 / C.COIN_BOOST)}`, bx + bw / 2, by + bh / 2 + 30, 24, '#ffffff', { outline: '#1b2246', ow: 6 });
-  }
 }
 
 function drawBanner() {
@@ -720,7 +709,7 @@ function drawGame() {
   if (boostActive) drawBoostFx();
   drawStairs();
   drawPlayer();
-  drawCoinFx();
+  drawLetterFx();
   ctx.restore();
   if (stageFade >= 1) prevStageIdx = stageIdx;
   drawHud();
@@ -826,7 +815,6 @@ function handleTap(clientX, clientY) {
   if (state === 'play' || state === 'ready') {
     if (boostActive) { doAction('climb'); return; } // 부스터 중: 화면 어디든 터치하면 오름
     if (id === 'pause') { onButton('pause'); return; }
-    if (id === 'boost') { pressAt.boost = clock(); tryBoost(); return; }
     doAction(p.x < GX + GW / 2 ? 'turn' : 'climb');
     return;
   }
@@ -869,7 +857,6 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault(); doAction('climb'); // 부스터 중: 스페이스바·화살표 아무거나 연타
     } else if (KEY_TURN.includes(key)) { e.preventDefault(); doAction('turn'); }
     else if (KEY_CLIMB.includes(key)) { e.preventDefault(); doAction('climb'); }
-    else if (KEY_BOOST.includes(key)) { e.preventDefault(); pressAt.boost = clock(); tryBoost(); }
     else if (key === 'Escape' || key === 'p' || key === 'P') onButton('pause');
   } else if (key === 'Enter' || key === ' ') {
     e.preventDefault();
@@ -944,7 +931,6 @@ window.__game = {
   get n() { return n; }, get facing() { return facing; },
   nextDir() { return stairs[n + 1].x - stairs[n].x; },
   act: doAction,
-  boostNow: tryBoost,
-  get coins() { return coins; },
-  nextHasCoin() { return !!stairs[n + 1].coin; },
+  get letters() { return gotCount; },
+  get collected() { return collected.slice(); },
 };
