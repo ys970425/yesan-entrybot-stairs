@@ -37,8 +37,9 @@ export const CONFIG = {
   BOOST_PER_STEP: 2,
   BOOST_PER_FAST_STEP: 3,   // 빠르게 연속으로 오를 때
   FAST_STEP_SEC: 0.4,
-  BOOST_DURATION: 3.0,
-  BOOST_STEPS_PER_SEC: 11,
+  BOOST_DURATION: 5.0,      // 부스터 시간(초): 계단이 일직선, 아무 버튼이나 연타
+  BOOST_STRAIGHT: 150,      // 부스터 동안 미리 깔아 둘 일직선 계단 수
+  AFTER_BOOST_STRAIGHT: 2,  // 부스터가 끝난 직후 같은 방향으로 이어지는 계단 수
 
   // 배경
   STAGE_EVERY: 50,

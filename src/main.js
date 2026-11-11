@@ -127,7 +127,7 @@ function buildBlocks() {
 let state = 'loading'; // loading | title | ready | play | paused | falling | over
 let pausedFrom = 'play';
 let stairs = [];
-let lastDir = 1, runLen = 0;
+let lastDir = 1, runLen = 0, straightUntil = 0;
 let n = 0, facing = 1, score = 0;
 let gauge = C.GAUGE_MAX;
 let boostGauge = 0, boostActive = false, boostTime = 0, boostAcc = 0, boostStartAt = -10;
@@ -149,7 +149,7 @@ function genStairs(upto) {
     const i = stairs.length;
     if (i === 0) { stairs.push({ x: 0, c: 0 }); lastDir = 1; runLen = 0; continue; }
     let dir = lastDir;
-    if (i > C.START_STRAIGHT) {
+    if (i > C.START_STRAIGHT && i > straightUntil) {
       if (runLen >= C.MAX_RUN || Math.random() < C.TURN_CHANCE) dir = -dir;
     }
     if (dir === lastDir) runLen++; else runLen = 1;
@@ -160,7 +160,7 @@ function genStairs(upto) {
 }
 
 function resetGame() {
-  stairs = []; genStairs(40);
+  stairs = []; straightUntil = 0; genStairs(40);
   n = 0; score = 0; facing = 1;
   gauge = C.GAUGE_MAX;
   boostGauge = 0; boostActive = false; boostTime = 0; boostAcc = 0; boostStartAt = -10;
@@ -187,7 +187,7 @@ function doAction(type) {
   if (state === 'ready') state = 'play';
   if (state !== 'play') return;
   pressAt[type] = clock();
-  if (boostActive) return; // 부스터 중에는 자동으로 오름
+  if (boostActive) { facing = stairs[n + 1].x - stairs[n].x; step(true); return; } // 부스터 중: 아무 버튼이나 누르면 일직선으로 오름
   if (type === 'turn') facing = -facing;
   const dir = stairs[n + 1].x - stairs[n].x;
   if (dir === facing) step(false);
@@ -204,7 +204,7 @@ function step(auto) {
     const fast = now - lastStepAt <= C.FAST_STEP_SEC;
     boostGauge = Math.min(100, boostGauge + (fast ? C.BOOST_PER_FAST_STEP : C.BOOST_PER_STEP));
     sfx.step();
-  } else if (stepCount % 2 === 0) {
+  } else {
     sfx.step();
   }
   lastStepAt = now;
@@ -221,7 +221,22 @@ function startBoost() {
   boostTime = C.BOOST_DURATION;
   boostAcc = 0;
   boostStartAt = clock();
+  // 앞의 계단을 지금 바라보는 방향으로 일직선으로 다시 깐다
+  rebuildAhead(C.BOOST_STRAIGHT);
   sfx.boost();
+}
+
+function endBoost() {
+  boostActive = false; boostGauge = 0; gauge = C.GAUGE_MAX;
+  // 남은 일직선 계단을 지우고, 잠깐 같은 방향으로 이어진 뒤 다시 무작위로
+  rebuildAhead(C.AFTER_BOOST_STRAIGHT);
+}
+
+function rebuildAhead(straightCount) {
+  stairs.length = n + 1;
+  lastDir = facing; runLen = 0;
+  straightUntil = n + straightCount;
+  genStairs(n + Math.max(30, straightCount + 30));
 }
 
 function fail(dir) {
@@ -241,17 +256,8 @@ function update(dt) {
   if (state === 'play') {
     if (boostActive) {
       boostTime -= dt;
-      boostAcc += dt;
-      const interval = 1 / C.BOOST_STEPS_PER_SEC;
-      while (boostAcc >= interval && boostTime > 0) {
-        boostAcc -= interval;
-        facing = stairs[n + 1].x - stairs[n].x;
-        step(true);
-      }
       boostGauge = Math.max(0, 100 * boostTime / C.BOOST_DURATION);
-      if (boostTime <= 0) {
-        boostActive = false; boostGauge = 0; gauge = C.GAUGE_MAX;
-      }
+      if (boostTime <= 0) endBoost();
     } else {
       gauge -= drainRate(score) * dt;
       if (gauge <= 0) { gauge = 0; fail(0); }
@@ -448,8 +454,12 @@ function drawBoostFx() {
   if (t < 0.9) {
     const s = 1 + Math.max(0, 0.4 - t) * 1.5;
     ctx.globalAlpha = Math.min(1, (0.9 - t) * 3);
-    text('BOOST!', GX + GW / 2, VH * 0.36, 110 * s, '#ffde3b', { outline: '#c4320a', ow: 14 });
+    text('BOOST!', GX + GW / 2, VH * 0.3, 110 * s, '#ffde3b', { outline: '#c4320a', ow: 14 });
     ctx.globalAlpha = 1;
+  } else {
+    const s = 1 + 0.08 * Math.sin(now * 18);
+    text('마구 눌러요!', GX + GW / 2, VH * 0.3, 64 * s, '#ffffff', { outline: '#c4320a', ow: 12 });
+    text(`${Math.ceil(Math.max(0, boostTime))}`, GX + GW / 2, VH * 0.3 + 76, 52, '#ffde3b', { outline: '#c4320a', ow: 10 });
   }
 }
 
