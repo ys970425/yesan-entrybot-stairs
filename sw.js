@@ -1,6 +1,6 @@
 // 오프라인 실행용: 처음 열 때 모든 파일을 저장해 두고, 이후에는 저장본으로 실행
 // 파일을 고쳐서 다시 배포할 때는 VERSION 숫자를 올립니다.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `yesan-stairs-${VERSION}`;
 const FILES = [
   './', './index.html', './manifest.json',
@@ -16,7 +16,7 @@ const FILES = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
