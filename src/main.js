@@ -138,6 +138,7 @@ let lastDir = 1, runLen = 0, straightUntil = 0;
 let collected = [], gotCount = 0, roundStart = 0, nextLetterAt = 0, letterFx = []; // 모은 글자, 이번 판 시작 계단, 다음 글자가 놓일 계단
 let n = 0, facing = 1, score = 0;
 let gauge = C.GAUGE_MAX;
+let graceUntil = 0; // 부스터가 끝난 뒤 무적 시간
 let boostGauge = 0, boostActive = false, boostTime = 0, boostAcc = 0, boostStartAt = -10;
 let lastStepAt = -10, stepCount = 0;
 let rx = 0, ry = 0, camX = 0, camY = 0; // 보이는 위치 (부드럽게 따라감)
@@ -201,6 +202,7 @@ function newLetterRound(from) {
 }
 
 function resetGame() {
+  graceUntil = 0;
   stairs = []; straightUntil = 0; newLetterRound(C.LETTER_FROM - C.LETTER_GAP_MIN); genStairs(40);
   n = 0; score = 0; facing = 1;
   gauge = C.GAUGE_MAX;
@@ -229,6 +231,7 @@ function doAction(type) {
   if (state !== 'play') return;
   pressAt[type] = clock();
   if (boostActive) { facing = stairs[n + 1].x - stairs[n].x; step(true); return; } // 부스터 중: 아무 버튼이나 누르면 일직선으로 오름
+  if (clock() < graceUntil) { facing = stairs[n + 1].x - stairs[n].x; step(false); return; } // 무적: 방향이 틀려도 올바른 계단으로
   if (type === 'turn') facing = -facing;
   const dir = stairs[n + 1].x - stairs[n].x;
   if (dir === facing) step(false);
@@ -282,6 +285,7 @@ function startBoost() {
 
 function endBoost() {
   boostActive = false; boostGauge = 0; gauge = C.GAUGE_MAX;
+  graceUntil = clock() + C.GRACE_SEC;
   newLetterRound(n + C.AFTER_BOOST_STRAIGHT); // 글자를 처음부터 다시 모은다
   // 남은 일직선 계단을 지우고, 잠깐 같은 방향으로 이어진 뒤 다시 무작위로
   rebuildAhead(C.AFTER_BOOST_STRAIGHT);
@@ -328,7 +332,7 @@ function update(dt) {
       boostGauge = Math.max(0, 100 * boostTime / C.BOOST_DURATION);
       if (boostTime <= 0) endBoost();
     } else {
-      gauge -= drainRate(score) * dt;
+      if (clock() >= graceUntil) gauge -= drainRate(score) * dt; // 무적 중에는 시간도 멈춤
       if (gauge <= 0) { gauge = 0; fail(0); }
     }
   }
@@ -544,6 +548,12 @@ function drawPlayer() {
       ctx.globalAlpha = 1;
     }
   }
+  const graceLeft = graceUntil - now;
+  if (graceLeft > 0 && state === 'play') {
+    drawBotAt(frame, rx, ry, facing, Math.floor(now * 14) % 2 ? 0.45 : 1); // 무적: 깜빡깜빡
+    text(`무적! ${graceLeft.toFixed(1)}`, sx(rx), sy(ry) - C.PLAYER_SIZE - 26, 40, '#7fd3ff', { outline: '#1b2246', ow: 9 });
+    return;
+  }
   drawBotAt(frame, rx, ry, facing);
 }
 
@@ -572,7 +582,16 @@ function drawBoostFx() {
   } else {
     const s = 1 + 0.08 * Math.sin(now * 18);
     text('아무 곳이나 마구 터치!', GX + GW / 2, VH * 0.3, 54 * s, '#ffffff', { outline: '#c4320a', ow: 12 });
-    text(`${Math.ceil(Math.max(0, boostTime))}`, GX + GW / 2, VH * 0.3 + 76, 52, '#ffde3b', { outline: '#c4320a', ow: 10 });
+    // 남은 시간: 화면 가운데에 크고 진하게
+    const left = Math.max(0, boostTime);
+    const sec = Math.ceil(left);
+    const pop = 1 + Math.max(0, (left % 1) - 0.75) * 1.2; // 초가 바뀔 때 톡 커짐
+    const cy = VH * 0.43;
+    ctx.fillStyle = 'rgba(20,16,40,0.55)';
+    ctx.beginPath(); ctx.arc(GX + GW / 2, cy, 118 * pop, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 10; ctx.strokeStyle = '#ffde3b';
+    ctx.beginPath(); ctx.arc(GX + GW / 2, cy, 118 * pop, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (left / C.BOOST_DURATION)); ctx.stroke();
+    text(String(sec), GX + GW / 2, cy + 8, 190 * pop, sec <= 1 ? '#ff5a3c' : '#ffde3b', { outline: '#1b2246', ow: 22 });
   }
 }
 
@@ -1141,7 +1160,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 // 테스트용 (게임 진행에는 쓰이지 않음)
 window.__game = {
   get state() { return state; }, get score() { return score; }, get best() { return best; },
-  get gauge() { return gauge; }, get boost() { return boostGauge; }, get boostActive() { return boostActive; },
+  get gauge() { return gauge; }, get boost() { return boostGauge; }, get boostActive() { return boostActive; }, get grace() { return Math.max(0, graceUntil - clock()); },
   get n() { return n; }, get facing() { return facing; },
   nextDir() { return stairs[n + 1].x - stairs[n].x; },
   act: doAction,
