@@ -15,6 +15,7 @@
     header a, header button { color: #1b2246; background: #ffcc33; border: 0; border-radius: 8px; padding: 8px 14px;
       font: 700 15px inherit; text-decoration: none; cursor: pointer; }
     header button.ghost { background: #e6e9f0; }
+    header button.danger-h { background: #e8402e; color: #fff; }
     main { max-width: 1180px; margin: 0 auto; padding: 18px 16px 60px; }
     .card { background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(27,34,70,0.08); padding: 18px; margin-bottom: 18px; }
     .card h2 { margin: 0 0 4px; font-size: 19px; }
@@ -58,6 +59,7 @@
     <h1>순위표 관리자 <small style="font-size:14px;opacity:.75;font-weight:400">엔트리봇 무한의 계단 · myoLab(산쌤)</small></h1>
     <a href="../board/" target="_blank" rel="noopener">TV 순위표 열기</a>
     <button type="button" id="reload" class="ghost">새로고침</button>
+    <button type="button" id="clearTop" class="danger-h" style="display:none">전체 기록 초기화</button>
     <button type="button" id="logout" class="ghost">잠그기</button>
   </header>
 
@@ -112,6 +114,7 @@
         const rows = await rpc('stairs_admin_list', { p_pin: pin });
         $('login').style.display = 'none';
         $('app').style.display = 'block';
+        $('clearTop').style.display = '';
         render(rows || []);
         return true;
       } catch (e) {
@@ -196,7 +199,7 @@
         } else if (b.dataset.show) {
           await rpc('stairs_admin_hide', { p_pin: pin, p_id: Number(b.dataset.show), p_hide: false });
           editing = false; toast('다시 보이게 했어요'); load(false);
-        } else if (b.id === 'clear') {
+        } else if (b.id === 'clear' || b.id === 'clearTop') {
           const t = prompt('모든 기록과 학생 정보를 지웁니다. 계속하려면 "삭제"라고 입력하세요.');
           if (t !== '삭제') return;
           await rpc('stairs_admin_clear_all', { p_pin: pin });

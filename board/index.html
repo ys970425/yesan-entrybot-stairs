@@ -46,6 +46,7 @@
     const IMG = {};
     const files = {
       bg: '../assets/board/stage_bg.webp', banner: '../assets/board/banner.webp', podium: '../assets/board/podium.webp',
+      logo: '../assets/board/event_logo.webp',
       trophy: '../assets/board/trophy.webp', silver: '../assets/board/medal_silver.webp', bronze: '../assets/board/medal_bronze.webp',
       cheer: '../assets/board/bot_cheer.webp', wave: '../assets/board/bot_wave.webp',
       back1: '../assets/board/bot_back1.webp', back2: '../assets/board/bot_back2.webp',
@@ -234,6 +235,15 @@
       ctx.restore();
     }
 
+    // 행사 로고 (오른쪽 위)
+    function drawLogo(t) {
+      const lg = IMG.logo;
+      if (!lg) return;
+      const h = 215, w = h * lg.width / lg.height;
+      const bob = Math.sin(t * 1.5) * 3;
+      ctx.drawImage(lg, W - 330 + (290 - w) / 2, 22 + bob, w, h);
+    }
+
     function drawSidePanels(t) {
       // 왼쪽: 게임 이름 + 명예의 전당 안내
       const lx = 40, ly = 250;
@@ -290,7 +300,7 @@
         const s = SLOTS[i];
         drawImg(bot('idle', 'black'), s.x, s.y + Math.sin(t * 2 + i) * 2, s.size, false, 0.28);
         txt('?', s.x, s.y - s.size * 0.55, 54, '#ffffff', { ow: 8 });
-        tag('도전자 모집!', null, s.x, s.y + 12, false, 'rgba(232,64,46,0.85)');
+        tag('모집 중!', null, s.x, s.y + 12, false, 'rgba(232,64,46,0.85)');
       }
     }
 
@@ -421,6 +431,7 @@
       drawBubbles(t);
       drawBanner(t);
       drawSidePanels(t);
+      drawLogo(t);
       drawCelebrate(t, dt);
       drawFooter();
       ctx.restore();
